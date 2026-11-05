@@ -4,12 +4,14 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
 import { Home } from './pages/Home';
+import { NotFound } from './pages/NotFound';
 
 export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // Dodaliśmy tryb 'reset' do typu
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'reset'>('login');
 
-  const openAuth = (mode: 'login' | 'register') => {
+  const openAuth = (mode: 'login' | 'register' | 'reset') => {
     setAuthMode(mode);
     setIsAuthOpen(true);
   };
@@ -22,6 +24,7 @@ export default function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Home onOpenAuth={openAuth} />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
 

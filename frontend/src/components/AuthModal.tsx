@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Globe2, X, Mail, Lock, User as UserIcon, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Globe2, X, Mail, Lock, User as UserIcon, Eye, EyeOff, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialMode: 'login' | 'register';
-  onSwitchMode: (mode: 'login' | 'register') => void;
+  initialMode: 'login' | 'register' | 'reset';
+  onSwitchMode: (mode: 'login' | 'register' | 'reset') => void;
 }
 
 export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthModalProps) {
@@ -14,13 +14,15 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
       setPassword('');
       setConfirmPassword('');
+      setIsLoading(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialMode]);
 
   const validations = {
     length: password.length >= 12,
@@ -29,6 +31,23 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
     number: /[0-9]/.test(password),
     special: /[^A-Za-z0-9]/.test(password),
     match: password !== '' && password === confirmPassword
+  };
+
+  const getConditionColor = (isValid: boolean) => {
+    if (password.length === 0) return 'text-slate-400';
+    return isValid ? 'text-emerald-600 font-medium' : 'text-red-500';
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      if (initialMode === 'reset') {
+        alert("Wysłano link resetujący na podany e-mail! (Symulacja)");
+        onSwitchMode('login');
+      }
+    }, 1500);
   };
 
   if (!isOpen) return null;
@@ -51,7 +70,9 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
               <div className="flex items-center gap-2 mb-4 opacity-80"><Globe2 className="w-5 h-5" /><span className="font-bold tracking-wide">TravelPlanner</span></div>
               <AnimatePresence mode="wait">
                 <motion.h3 key={initialMode} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="text-2xl font-bold leading-snug">
-                  {initialMode === 'login' ? 'Witaj z powrotem na szlaku.' : 'Rozpocznij swoją przygodę już dziś.'}
+                  {initialMode === 'login' ? 'Witaj z powrotem na szlaku.' : 
+                   initialMode === 'register' ? 'Rozpocznij swoją przygodę już dziś.' : 
+                   'Znajdziemy Twój zagubiony szlak.'}
                 </motion.h3>
               </AnimatePresence>
             </div>
@@ -62,32 +83,43 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
             <AnimatePresence mode="wait">
               <motion.div key={initialMode} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25, ease: "easeOut" }} className="flex-1 flex flex-col justify-center">
                 <div className="mb-8">
-                  <h2 className="text-3xl font-black text-slate-900">{initialMode === 'login' ? 'Zaloguj się' : 'Utwórz konto'}</h2>
-                  <p className="text-slate-500 mt-2">{initialMode === 'login' ? 'Wpisz swoje dane, aby kontynuować.' : 'Wypełnij formularz, aby dołączyć.'}</p>
+                  <h2 className="text-3xl font-black text-slate-900">
+                    {initialMode === 'login' ? 'Zaloguj się' : initialMode === 'register' ? 'Utwórz konto' : 'Resetuj hasło'}
+                  </h2>
+                  <p className="text-slate-500 mt-2">
+                    {initialMode === 'login' ? 'Wpisz swoje dane, aby kontynuować.' : 
+                     initialMode === 'register' ? 'Wypełnij formularz, aby dołączyć.' : 
+                     'Podaj e-mail, na który wyślemy instrukcje.'}
+                  </p>
                 </div>
-                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                <form className="space-y-4" onSubmit={handleSubmit}>
                   {initialMode === 'register' && (
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><UserIcon className="h-5 w-5 text-slate-400" /></div>
                       <input type="text" placeholder="Imię" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"/>
                     </div>
                   )}
+                  
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
-                    <input type="email" placeholder="Adres e-mail" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"/>
+                    <input type="email" placeholder="Adres e-mail" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" required/>
                   </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-400" /></div>
-                    <input type={showPassword ? "text" : "password"} placeholder="Hasło" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"/>
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
-                  </div>
+
+                  {initialMode !== 'reset' && (
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-400" /></div>
+                      <input type={showPassword ? "text" : "password"} placeholder="Hasło" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"/>
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
+                    </div>
+                  )}
+
                   {initialMode === 'register' && (
                     <>
                       <div className="grid grid-cols-2 gap-2 mt-2 px-1">
-                        <div className={`text-xs flex items-center gap-1.5 ${validations.length ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}><CheckCircle2 className="w-3.5 h-3.5" /> Min. 12 znaków</div>
-                        <div className={`text-xs flex items-center gap-1.5 ${validations.lowercase && validations.uppercase ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}><CheckCircle2 className="w-3.5 h-3.5" /> Mała i duża litera</div>
-                        <div className={`text-xs flex items-center gap-1.5 ${validations.number ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}><CheckCircle2 className="w-3.5 h-3.5" /> Min. 1 cyfra</div>
-                        <div className={`text-xs flex items-center gap-1.5 ${validations.special ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}><CheckCircle2 className="w-3.5 h-3.5" /> Znak specjalny</div>
+                        <div className={`text-xs flex items-center gap-1.5 transition-colors ${getConditionColor(validations.length)}`}><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Min. 12 znaków</div>
+                        <div className={`text-xs flex items-center gap-1.5 transition-colors ${getConditionColor(validations.lowercase && validations.uppercase)}`}><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Mała i duża litera</div>
+                        <div className={`text-xs flex items-center gap-1.5 transition-colors ${getConditionColor(validations.number)}`}><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Min. 1 cyfra</div>
+                        <div className={`text-xs flex items-center gap-1.5 transition-colors ${getConditionColor(validations.special)}`}><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Znak specjalny</div>
                       </div>
                       <div className="relative mt-4">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-400" /></div>
@@ -97,18 +129,38 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
                       {confirmPassword.length > 0 && !validations.match && <p className="text-red-500 text-xs mt-1 px-1">Hasła nie są identyczne.</p>}
                     </>
                   )}
-                  {initialMode === 'login' && <div className="flex justify-end pt-2"><a href="#" className="text-sm font-bold text-emerald-600 hover:text-emerald-700">Zapomniałeś hasła?</a></div>}
-                  <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl transition-colors mt-6 cursor-pointer shadow-md shadow-emerald-200">
-                    {initialMode === 'login' ? 'Zaloguj się' : 'Utwórz konto'}
+
+                  {initialMode === 'login' && (
+                    <div className="flex justify-end pt-2">
+                      <button type="button" onClick={() => onSwitchMode('reset')} className="text-sm font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer">
+                        Zapomniałeś hasła?
+                      </button>
+                    </div>
+                  )}
+
+                  <button 
+                    disabled={isLoading} 
+                    type="submit" 
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-400 text-white font-bold py-3.5 rounded-xl transition-colors mt-6 cursor-pointer shadow-md shadow-emerald-200 flex justify-center items-center h-[52px]"
+                  >
+                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 
+                     (initialMode === 'login' ? 'Zaloguj się' : 
+                      initialMode === 'register' ? 'Utwórz konto' : 
+                      'Wyślij link')}
                   </button>
                 </form>
               </motion.div>
             </AnimatePresence>
+
             <div className="mt-6 text-center text-sm font-medium text-slate-600 border-t border-slate-100 pt-6">
               {initialMode === 'login' ? (
-                <>Nie masz jeszcze konta?{' '}<button onClick={() => onSwitchMode('register')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer">Zarejestruj się</button></>
+                <>Nie masz jeszcze konta? <button onClick={() => onSwitchMode('register')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer">Zarejestruj się</button></>
+              ) : initialMode === 'register' ? (
+                <>Masz już konto? <button onClick={() => onSwitchMode('login')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer">Zaloguj się</button></>
               ) : (
-                <>Masz już konto?{' '}<button onClick={() => onSwitchMode('login')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer">Zaloguj się</button></>
+                <button onClick={() => onSwitchMode('login')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer flex items-center justify-center gap-1.5 w-full">
+                  <ArrowLeft className="w-4 h-4" /> Wróć do logowania
+                </button>
               )}
             </div>
           </div>

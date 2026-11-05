@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { 
   MapPin, ArrowRight, CalendarDays, CheckCircle2, 
-  Navigation, Smartphone, ChevronDown, Sparkles, Route, 
-  Download, Star, Quote
+  Navigation, ChevronDown, Sparkles, Route, 
+  Star, Quote, Wallet, PieChart, Users, Receipt
 } from 'lucide-react';
 
 const heroVariants: Variants = {
@@ -91,7 +91,7 @@ export function Home({ onOpenAuth }: HomeProps) {
             {[
               { icon: MapPin, title: "1. Określ cel", desc: "Podaj miejsce, daty i swoje preferencje podróżnicze." },
               { icon: Sparkles, title: "2. Personalizuj", desc: "Dostosuj wygenerowany plan, dodaj atrakcje i ułóż logistykę." },
-              { icon: Route, title: "3. Podróżuj", desc: "Zabierz gotowy plan w drogę, dostępny offline na każdym urządzeniu." }
+              { icon: Route, title: "3. Podróżuj", desc: "Zabierz gotowy plan w drogę i kontroluj wszystkie szczegóły." }
             ].map((step, i) => (
               <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={scrollReveal} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/20 text-center relative">
                 <div className="w-16 h-16 mx-auto bg-emerald-50 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm"><step.icon className="w-7 h-7 text-emerald-500" /></div>
@@ -110,13 +110,14 @@ export function Home({ onOpenAuth }: HomeProps) {
             <p className="text-xl text-slate-500">Tworzenie exceli i przeskakiwanie między aplikacjami to przeszłość. Prawdziwe narzędzie "all-in-one".</p>
           </motion.div>
 
+          {/* Sekcja 1: Harmonogram */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="grid md:grid-cols-2 gap-16 items-center mb-32">
             <div className="order-2 md:order-1">
               <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><CalendarDays className="w-8 h-8 text-emerald-600" /></div>
               <h3 className="text-4xl font-bold text-slate-900 mb-6">Przejrzysty harmonogram</h3>
               <p className="text-slate-600 text-xl mb-8 leading-relaxed">Układaj plany dzień po dniu. Dodawaj własne punkty, przeliczaj czas spędzony w atrakcjach i miej pełną kontrolę nad tempem wycieczki.</p>
               <ul className="space-y-4">
-                {['Zarządzanie dniami i godzinami', 'Automatyczne liczenie czasu wolnego', 'Możliwość wpisywania kosztów'].map((item, i) => (
+                {['Zarządzanie dniami i godzinami', 'Automatyczne liczenie czasu wolnego', 'Ustalanie priorytetów zwiedzania'].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-slate-700 font-medium text-lg"><CheckCircle2 className="w-6 h-6 text-emerald-500" /> {item}</li>
                 ))}
               </ul>
@@ -135,6 +136,7 @@ export function Home({ onOpenAuth }: HomeProps) {
             </div>
           </motion.div>
 
+          {/* Sekcja 2: Mapa */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="grid md:grid-cols-2 gap-16 items-center mb-32">
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
                <div className="w-full h-[300px] bg-emerald-100/50 rounded-2xl border border-emerald-200 flex items-center justify-center relative overflow-hidden group hover:bg-emerald-100/80 transition-colors">
@@ -155,24 +157,46 @@ export function Home({ onOpenAuth }: HomeProps) {
             </div>
           </motion.div>
 
+          {/* Sekcja 3 (ZAMIENIONA): Inteligentny budżet i rozliczenia */}
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="grid md:grid-cols-2 gap-16 items-center">
             <div className="order-2 md:order-1">
-              <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><Smartphone className="w-8 h-8 text-amber-600" /></div>
-              <h3 className="text-4xl font-bold text-slate-900 mb-6">Dostęp offline i eksport</h3>
-              <p className="text-slate-600 text-xl mb-8 leading-relaxed">Brak internetu za granicą to nie problem. Pobierz cały harmonogram wraz z mapami do formatu PDF lub korzystaj z aplikacji w trybie bez połączenia.</p>
+              <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><Wallet className="w-8 h-8 text-amber-600" /></div>
+              <h3 className="text-4xl font-bold text-slate-900 mb-6">Rozliczenia pod kontrolą</h3>
+              <p className="text-slate-600 text-xl mb-8 leading-relaxed">Planujesz wyjazd ze znajomymi? Rejestrujcie koszty na bieżąco. Aplikacja automatycznie przeliczy wydatki i pokaże, kto komu ile wisi.</p>
               <ul className="space-y-4">
-                {['Eksport całego planu do pliku PDF', 'Pobieranie biletów i załączników', 'Działanie PWA w trybie samolotowym'].map((item, i) => (
+                {['Podział kosztów między uczestników', 'Kategoryzacja wydatków (jedzenie, nocleg)', 'Automatyczne podsumowanie wyjazdu'].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-slate-700 font-medium text-lg"><CheckCircle2 className="w-6 h-6 text-emerald-500" /> {item}</li>
                 ))}
               </ul>
             </div>
             <div className="order-1 md:order-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-               <div className="w-full h-[300px] bg-amber-50/60 rounded-2xl border border-amber-100 flex flex-col items-center justify-center relative overflow-hidden group">
-                 <Smartphone className="w-28 h-28 text-amber-200/80 transition-transform group-hover:scale-110 duration-500" />
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 bg-white p-4 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-4 w-64 group-hover:-translate-y-4 transition-transform duration-500">
-                    <div className="bg-emerald-100 p-3 rounded-xl"><Download className="w-6 h-6 text-emerald-600" /></div>
-                    <div><p className="text-sm font-bold text-slate-800">Plan zapisany</p><p className="text-xs text-slate-500 mt-0.5">Dostępny w pełni offline</p></div>
+               <div className="w-full h-[300px] bg-amber-50/60 rounded-2xl border border-amber-100 p-6 flex flex-col justify-center relative overflow-hidden group">
+                 {/* Elementy udające widok budżetu */}
+                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-4 flex justify-between items-center z-10 transition-transform group-hover:-translate-y-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center"><PieChart className="w-5 h-5 text-amber-600" /></div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400">CAŁKOWITY KOSZT</p>
+                        <p className="text-lg font-black text-slate-800">4 250,00 PLN</p>
+                      </div>
+                    </div>
                  </div>
+                 
+                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center z-10 transition-transform group-hover:-translate-y-1 delay-75">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center"><Receipt className="w-5 h-5 text-emerald-600" /></div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-400">TWÓJ UDZIAŁ</p>
+                        <p className="text-lg font-black text-slate-800">2 125,00 PLN</p>
+                      </div>
+                    </div>
+                    <div className="flex -space-x-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-500">Ty</div>
+                      <div className="w-8 h-8 rounded-full bg-slate-300 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-500"><Users className="w-4 h-4"/></div>
+                    </div>
+                 </div>
+                 
+                 <Wallet className="absolute -bottom-8 -right-8 w-48 h-48 text-amber-200/40 z-0 transition-transform group-hover:scale-110 duration-700" />
                </div>
             </div>
           </motion.div>
@@ -189,7 +213,7 @@ export function Home({ onOpenAuth }: HomeProps) {
             {[
               { name: "Michał T.", role: "Digital Nomad", text: "Kiedyś spędzałem godziny w Excelu. Teraz wrzucam miasta na mapę, a TravelPlanner sam układa mi optymalną trasę. Złoto!" },
               { name: "Anna K.", role: "Podróżuje z rodziną", text: "Najlepsza funkcja to budżet i dzielenie kosztów. W końcu nie musimy się z mężem zastanawiać, ile wydaliśmy na bilety w Rzymie." },
-              { name: "Kamil R.", role: "Weekendowy odkrywca", text: "Dostęp offline uratował mi życie w górach na Maderze, gdy straciłem zasięg. Wszystkie punkty miałem zapisane w telefonie." }
+              { name: "Kamil R.", role: "Weekendowy odkrywca", text: "Świetnie sprawdza się do zarządzania czasem podczas intensywnych weekendowych city-breaków. Nic nam nie umyka." }
             ].map((review, i) => (
               <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={scrollReveal} className="bg-slate-50 p-8 rounded-3xl border border-slate-100 relative">
                 <Quote className="absolute top-6 right-6 w-8 h-8 text-slate-200" />
