@@ -5,18 +5,20 @@ import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
 import { Home } from './pages/Home';
 import { NotFound } from './pages/NotFound';
-import { Dashboard } from './pages/Dashboard'; // <--- DODAJ TO
+import { Dashboard } from './pages/Dashboard';
+import { Planer } from './pages/Planer'; // <--- IMPORT PLANERA
 
 // Pomocniczy komponent do warunkowego renderowania Nav/Footer
 function Layout({ children, onOpenAuth }: { children: React.ReactNode, onOpenAuth: any }) {
   const location = useLocation();
-  const isDashboard = location.pathname.startsWith('/dashboard');
+  // Ukrywamy globalny Nav i Footer dla Dashboardu i Planera
+  const isAppView = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/planer');
 
   return (
     <>
-      {!isDashboard && <Navbar onOpenAuth={onOpenAuth} />}
+      {!isAppView && <Navbar onOpenAuth={onOpenAuth} />}
       <main className="flex-1">{children}</main>
-      {!isDashboard && <Footer />}
+      {!isAppView && <Footer />}
     </>
   );
 }
@@ -36,7 +38,8 @@ export default function App() {
         <Layout onOpenAuth={openAuth}>
           <Routes>
             <Route path="/" element={<Home onOpenAuth={openAuth} />} />
-            <Route path="/dashboard" element={<Dashboard />} /> {/* <--- DODAJ TO */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/planer/:id" element={<Planer />} /> {/* <--- NOWA TRASA */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>

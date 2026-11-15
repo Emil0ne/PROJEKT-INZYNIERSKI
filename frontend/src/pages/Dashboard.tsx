@@ -20,7 +20,7 @@ const INITIAL_TRIPS = [
     id: '2',
     title: 'Mecz Chelsea',
     location: 'Londyn, UK',
-    startDate: '2027-04-10', // Przykładowa data w przyszłości
+    startDate: '2027-04-10', 
     endDate: '2027-04-12',
     days: 3,
     status: 'upcoming',
@@ -37,7 +37,6 @@ const CITIES_DB = [
   { id: 'c6', name: 'Irak', region: 'Bliski Wschód', type: 'Country', displayName: 'Irak', lat: 33.2232, lng: 43.6793 },
 ];
 
-// Helper do obliczania dni do wyjazdu
 const getDaysUntil = (startDate: string) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -64,6 +63,7 @@ export function Dashboard() {
   
   const [planDestination, setPlanDestination] = useState('');
   const [showDestinations, setShowDestinations] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const [planStartDate, setPlanStartDate] = useState('');
   const [planEndDate, setPlanEndDate] = useState('');
   const [planError, setPlanError] = useState('');
@@ -74,14 +74,17 @@ export function Dashboard() {
   ]);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Referencje dodane do kontrolowania natywnych kalendarzy
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const endDateRef = useRef<HTMLInputElement>(null);
+  
   const todayDate = new Date().toISOString().split('T')[0];
 
-  // Dynamiczne statystyki mapy
   const citiesCount = visitedPlaces.length;
   const uniqueCountriesCount = new Set(
     visitedPlaces.map(p => {
       const parts = (p.displayName || p.name).split(',');
-      return parts[parts.length - 1].trim(); // Pobiera ostatni element po przecinku jako kraj
+      return parts[parts.length - 1].trim(); 
     })
   ).size;
 
@@ -149,10 +152,18 @@ export function Dashboard() {
       return;
     }
     setIsPlanModalOpen(false);
+    
+    const params = new URLSearchParams();
+    params.set('dest', planDestination);
+    params.set('start', planStartDate || todayDate);
+    params.set('end', planEndDate || todayDate);
+    
     setPlanDestination('');
     setPlanStartDate('');
     setPlanEndDate('');
-    navigate('/planer/nowy'); 
+    setFocusedIndex(-1);
+    
+    navigate(`/planer/nowy?${params.toString()}`); 
   };
 
   const searchResults = CITIES_DB.filter(c => 
@@ -401,6 +412,7 @@ export function Dashboard() {
                 setPlanStartDate('');
                 setPlanEndDate('');
                 setPlanError('');
+                setFocusedIndex(-1);
               }}
             ></div>
             
@@ -417,6 +429,7 @@ export function Dashboard() {
                   setPlanStartDate('');
                   setPlanEndDate('');
                   setPlanError('');
+                  setFocusedIndex(-1);
                 }} 
                 className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer z-50"
               >
@@ -439,8 +452,32 @@ export function Dashboard() {
                       onChange={(e) => {
                         setPlanDestination(e.target.value);
                         setShowDestinations(true);
+                        setFocusedIndex(-1); 
                       }}
                       onFocus={() => setShowDestinations(true)}
+                      onKeyDown={(e) => {
+                        if (!showDestinations || modalSearchResults.length === 0) return;
+                        
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setFocusedIndex(prev => (prev < modalSearchResults.length - 1 ? prev + 1 : prev));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setFocusedIndex(prev => (prev > 0 ? prev - 1 : -1));
+                        } else if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (focusedIndex >= 0 && focusedIndex < modalSearchResults.length) {
+                            setPlanDestination(modalSearchResults[focusedIndex].displayName);
+                            setShowDestinations(false);
+                            setFocusedIndex(-1);
+                          } else if (modalSearchResults.length > 0) {
+                            setPlanDestination(modalSearchResults[0].displayName);
+                            setShowDestinations(false);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setShowDestinations(false);
+                        }
+                      }}
                       placeholder="np. Paryż, Hawaje, Japonia" 
                       className="w-full py-4 pl-4 pr-4 bg-transparent text-slate-900 focus:outline-none font-medium placeholder:font-normal placeholder:text-slate-400" 
                     />
@@ -454,14 +491,17 @@ export function Dashboard() {
                         exit={{ opacity: 0, y: -10 }}
                         className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-[70] overflow-hidden max-h-64 overflow-y-auto"
                       >
-                        {modalSearchResults.map(city => (
+                        {modalSearchResults.map((city, index) => (
                           <div 
                             key={city.id}
                             onClick={() => {
                               setPlanDestination(city.displayName);
                               setShowDestinations(false);
+                              setFocusedIndex(-1);
                             }}
-                            className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors"
+                            className={`flex items-center justify-between px-5 py-3.5 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
+                              focusedIndex === index ? 'bg-slate-100' : 'hover:bg-slate-50'
+                            }`}
                           >
                             <div>
                               <div className="font-bold text-slate-900">{city.name}</div>
@@ -478,36 +518,70 @@ export function Dashboard() {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row border border-slate-200 rounded-2xl overflow-hidden bg-white">
-                  <div className="relative flex-1 p-2 sm:border-r border-slate-200 focus-within:bg-slate-50 transition-colors">
-                    <label className="flex flex-col cursor-text">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-3 pt-2 flex items-center gap-1.5">
+                  <div 
+                    className="relative flex-1 p-2 sm:border-r border-slate-200 focus-within:bg-slate-50 transition-colors group cursor-pointer"
+                    onClick={() => {
+                      try {
+                        startDateRef.current?.showPicker();
+                      } catch (e) {
+                        // ignoruj błąd, jeśli picker jest już otwarty
+                      }
+                    }}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-3 pt-2 flex items-center gap-1.5 pointer-events-none">
                         <Calendar className="w-3.5 h-3.5" />
                         Data rozpoczęcia
                       </span>
                       <input 
+                        ref={startDateRef}
                         type="date"
                         min={todayDate}
                         value={planStartDate}
                         onChange={(e) => setPlanStartDate(e.target.value)}
-                        className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none" 
+                        className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none cursor-pointer" 
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) {
+                            // ignoruj błąd
+                          }
+                        }} 
                       />
-                    </label>
+                    </div>
                   </div>
                   
-                  <div className="relative flex-1 p-2 border-t sm:border-t-0 border-slate-200 focus-within:bg-slate-50 transition-colors">
-                    <label className="flex flex-col cursor-text">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-3 pt-2 flex items-center gap-1.5">
+                  <div 
+                    className="relative flex-1 p-2 border-t sm:border-t-0 border-slate-200 focus-within:bg-slate-50 transition-colors group cursor-pointer"
+                    onClick={() => {
+                      try {
+                        endDateRef.current?.showPicker();
+                      } catch (e) {
+                        // ignoruj błąd, jeśli picker jest już otwarty
+                      }
+                    }}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-3 pt-2 flex items-center gap-1.5 pointer-events-none">
                         <Calendar className="w-3.5 h-3.5" />
                         Data zakończenia
                       </span>
                       <input 
+                        ref={endDateRef}
                         type="date" 
                         min={planStartDate || todayDate}
                         value={planEndDate}
                         onChange={(e) => setPlanEndDate(e.target.value)}
-                        className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none" 
+                        className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none cursor-pointer" 
+                        onClick={(e) => {
+                          try {
+                            e.currentTarget.showPicker();
+                          } catch (err) {
+                            // ignoruj błąd
+                          }
+                        }}
                       />
-                    </label>
+                    </div>
                   </div>
                 </div>
                 
@@ -531,6 +605,7 @@ export function Dashboard() {
                       setPlanStartDate('');
                       setPlanEndDate('');
                       setPlanError('');
+                      setFocusedIndex(-1);
                     }}
                     className="text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                   >
