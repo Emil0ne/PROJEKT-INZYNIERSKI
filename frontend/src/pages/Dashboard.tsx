@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Plus, LogOut, Globe2, Trophy, Search, X, MoreHorizontal, Trash2, Sparkles, Map as MapIcon, Calendar } from 'lucide-react';
+import { MapPin, Plus, LogOut, Globe2, Trophy, Search, X, MoreHorizontal, Trash2, Sparkles, Map as MapIcon, Calendar, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Footer } from '../components/Footer';
 import { TravelMap } from '../components/TravelMap'; 
@@ -28,15 +28,6 @@ const INITIAL_TRIPS = [
   }
 ];
 
-const CITIES_DB = [
-  { id: 'c1', name: 'Paryż', region: 'Île-de-France, Francja', type: 'City', displayName: 'Paryż, Francja', lat: 48.8566, lng: 2.3522 },
-  { id: 'c2', name: 'Kraków', region: 'Województwo małopolskie, Polska', type: 'City', displayName: 'Kraków, Polska', lat: 50.0614, lng: 19.9365 },
-  { id: 'c3', name: 'Krakovec', region: 'Region Środkowoczeski, Czechy', type: 'City', displayName: 'Krakovec, Czechy', lat: 50.0123, lng: 13.6541 },
-  { id: 'c4', name: 'Tokio', region: 'Kanto, Japonia', type: 'City', displayName: 'Tokio, Japonia', lat: 35.6762, lng: 139.6503 },
-  { id: 'c5', name: 'Rzym', region: 'Lacjum, Włochy', type: 'City', displayName: 'Rzym, Włochy', lat: 41.9028, lng: 12.4964 },
-  { id: 'c6', name: 'Irak', region: 'Bliski Wschód', type: 'Country', displayName: 'Irak', lat: 33.2232, lng: 43.6793 },
-];
-
 const getDaysUntil = (startDate: string) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -61,9 +52,16 @@ export function Dashboard() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   
+  // Stan dla modala nowej podróży (OpenStreetMap API)
   const [planDestination, setPlanDestination] = useState('');
+  const [modalSearchResults, setModalSearchResults] = useState<any[]>([]);
+  const [isModalSearching, setIsModalSearching] = useState(false);
   const [showDestinations, setShowDestinations] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [selectedPlace, setSelectedPlace] = useState<any | null>(null); // miejsce wybrane z listy podpowiedzi
+  const modalSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestId = useRef(0); // chroni przed spóźnionymi odpowiedziami
+
   const [planStartDate, setPlanStartDate] = useState('');
   const [planEndDate, setPlanEndDate] = useState('');
   const [planError, setPlanError] = useState('');
@@ -74,7 +72,6 @@ export function Dashboard() {
   ]);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  // Referencje dodane do kontrolowania natywnych kalendarzy
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
   
@@ -110,6 +107,18 @@ export function Dashboard() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isFullscreen, isPlanModalOpen]);
 
+  // Po zamknięciu modala zapominamy wybrane miejsce
+  useEffect(() => {
+    if (!isPlanModalOpen) setSelectedPlace(null);
+  }, [isPlanModalOpen]);
+
+  const selectDestination = (place: any) => {
+    setPlanDestination(place.display_name);
+    setSelectedPlace(place);
+    setShowDestinations(false);
+    setFocusedIndex(-1);
+  };
+
   const handleToggleMenu = (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); 
     setActiveMenuId(activeMenuId === id ? null : id);
@@ -125,14 +134,23 @@ export function Dashboard() {
     navigate(`/planer/${tripId}`);
   };
 
-  const handleAddPlaceFromSearch = (city: typeof CITIES_DB[0]) => {
-    if (!visitedPlaces.find(p => p.id === city.id)) {
-      setVisitedPlaces([...visitedPlaces, { ...city }]);
+  const handleAddPlaceFromSearch = (place: any) => {
+    const newPlace = {
+      id: place.place_id || String(Date.now()),
+      name: place.display_name.split(',')[0],
+      region: place.display_name,
+      type: 'City',
+      displayName: place.display_name,
+      lat: parseFloat(place.lat),
+      lng: parseFloat(place.lon)
+    };
+    if (!visitedPlaces.find(p => p.id === newPlace.id)) {
+      setVisitedPlaces([...visitedPlaces, newPlace]);
     }
     setSearchQuery('');
   };
 
-  const handleTogglePlaceStatus = (city: typeof CITIES_DB[0]) => {
+  const handleTogglePlaceStatus = (city: any) => {
     const isVisited = visitedPlaces.some(p => p.id === city.id);
     if (isVisited) {
       setVisitedPlaces(visitedPlaces.filter(p => p.id !== city.id));
@@ -141,20 +159,113 @@ export function Dashboard() {
     }
   };
 
+  const handleModalDestinationChange = (query: string) => {
+    setPlanDestination(query);
+    setSelectedPlace(null); // użytkownik zmienił tekst, więc poprzedni wybór przestaje obowiązywać
+    setShowDestinations(true);
+    setFocusedIndex(-1);
+
+    if (modalSearchTimeout.current) clearTimeout(modalSearchTimeout.current);
+
+    // Szukamy dopiero od 3 znaków
+    if (query.trim().length < 3) {
+      searchRequestId.current++; // unieważnij trwające zapytania
+      setModalSearchResults([]);
+      setIsModalSearching(false);
+      return;
+    }
+
+    setIsModalSearching(true);
+    const requestId = ++searchRequestId.current;
+
+    modalSearchTimeout.current = setTimeout(async () => {
+      try {
+        // Open-Meteo Geocoding: od 3 znaków dopasowuje początek nazwy,
+        // ignoruje wielkość liter i polskie znaki, zwraca nazwy po polsku.
+        const url =
+          `https://geocoding-api.open-meteo.com/v1/search` +
+          `?name=${encodeURIComponent(query.trim())}&count=15&language=pl&format=json`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // Jeśli w międzyczasie wpisano coś nowego, ignorujemy tę odpowiedź
+        if (requestId !== searchRequestId.current) return;
+
+        const mapped = (data?.results || [])
+          // tylko miasta/miejscowości (PPL*), państwa (PCL*) i regiony (ADM1)
+          .filter((r: any) => {
+            const code: string = r.feature_code || '';
+            return !code || code.startsWith('PPL') || code.startsWith('PCL') || code === 'ADM1';
+          })
+          .map((r: any) => {
+            const code: string = r.feature_code || '';
+            const kind = code.startsWith('PCL') ? 'country' : code === 'ADM1' ? 'region' : 'city';
+            const display_name =
+              kind === 'country'
+                ? r.name
+                : [r.name, r.admin1, r.country]
+                    .filter(Boolean)
+                    .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i)
+                    .join(', ');
+            return {
+              place_id: String(r.id),
+              display_name,
+              lat: r.latitude,
+              lon: r.longitude,
+              kind,
+            };
+          });
+
+        // Usuwamy duplikaty, kraje wyświetlamy na górze (reszta zostaje w kolejności trafności)
+        const unique = mapped.filter(
+          (item: any, i: number, arr: any[]) =>
+            i === arr.findIndex((t) => t.display_name === item.display_name)
+        );
+        unique.sort(
+          (a: any, b: any) => (a.kind === 'country' ? 0 : 1) - (b.kind === 'country' ? 0 : 1)
+        );
+
+        setModalSearchResults(unique.slice(0, 6));
+      } catch {
+        if (requestId === searchRequestId.current) setModalSearchResults([]);
+      } finally {
+        if (requestId === searchRequestId.current) setIsModalSearching(false);
+      }
+    }, 300);
+  };
+
   const handleStartPlanning = () => {
     setPlanError('');
     if (!planDestination.trim()) {
       setPlanError('Proszę określić cel podróży.');
       return;
     }
-    if (planStartDate && planEndDate && planEndDate < planStartDate) {
+
+    // Cel musi pochodzić z listy podpowiedzi (stąd mamy współrzędne dla mapy w planerze).
+    // Jeśli użytkownik tylko wpisał tekst, bierzemy pierwszą podpowiedź.
+    const place =
+      selectedPlace ||
+      (!isModalSearching && modalSearchResults.length > 0 ? modalSearchResults[0] : null);
+    if (!place) {
+      setPlanError('Wybierz miejsce z listy podpowiedzi.');
+      return;
+    }
+    if (!planStartDate || !planEndDate) {
+      setPlanError('Proszę wybrać datę rozpoczęcia i zakończenia podróży.');
+      return;
+    }
+    if (planEndDate < planStartDate) {
       setPlanError('Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.');
       return;
     }
     setIsPlanModalOpen(false);
     
     const params = new URLSearchParams();
-    params.set('dest', planDestination);
+    params.set('dest', place.display_name);
+    params.set('lat', String(place.lat));
+    params.set('lng', String(place.lon));
+    params.set('kind', place.kind);
     params.set('start', planStartDate || todayDate);
     params.set('end', planEndDate || todayDate);
     
@@ -166,15 +277,21 @@ export function Dashboard() {
     navigate(`/planer/nowy?${params.toString()}`); 
   };
 
-  const searchResults = CITIES_DB.filter(c => 
-    c.displayName.toLowerCase().includes(searchQuery.toLowerCase()) && searchQuery.length > 1
-  );
-
-  const modalSearchResults = CITIES_DB.filter(c => 
-    (c.name.toLowerCase().includes(planDestination.toLowerCase()) || 
-     c.region.toLowerCase().includes(planDestination.toLowerCase())) && 
-     planDestination.length > 0
-  );
+  // Wyszukiwarka dla mapy odkrywcy
+  const [explorerSearchResults, setExplorerSearchResults] = useState<any[]>([]);
+  useEffect(() => {
+    if (searchQuery.trim().length < 3) {
+      setExplorerSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&accept-language=pl`)
+        .then(res => res.json())
+        .then(data => setExplorerSearchResults(data || []))
+        .catch(() => setExplorerSearchResults([]));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 flex flex-col relative">
@@ -334,23 +451,23 @@ export function Dashboard() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="text" 
-                  placeholder="Dodaj miejsce, które odwiedziłeś..." 
+                  placeholder="Wpisz min. 3 znaki, aby szukać..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-12 pr-4 py-3.5 bg-white rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-lg border-0"
                 />
               </div>
               
-              {searchResults.length > 0 && (
+              {explorerSearchResults.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl overflow-hidden z-[60] border border-slate-100">
-                  {searchResults.map(city => (
+                  {explorerSearchResults.map((place, idx) => (
                     <button 
-                      key={city.id} 
-                      onClick={() => handleAddPlaceFromSearch(city)}
+                      key={idx} 
+                      onClick={() => handleAddPlaceFromSearch(place)}
                       className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-sm font-medium text-slate-700 transition-colors border-b border-slate-50 flex items-center gap-2"
                     >
-                      <MapPin className="w-4 h-4 text-emerald-500" />
-                      {city.displayName}
+                      <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span className="truncate">{place.display_name}</span>
                     </button>
                   ))}
                 </div>
@@ -389,7 +506,7 @@ export function Dashboard() {
 
           <TravelMap 
             key={isFullscreen ? 'fullscreen' : 'windowed'} 
-            places={searchResults}
+            places={explorerSearchResults}
             visitedPlaces={visitedPlaces}
             onTogglePlace={(place) => handleTogglePlaceStatus(place as any)}
           />
@@ -443,17 +560,14 @@ export function Dashboard() {
               <div className="space-y-5 relative">
                 <div className="relative" ref={dropdownRef}>
                   <div className="border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all bg-white flex items-center relative z-20">
-                    <div className="pl-5 font-bold text-slate-800 text-sm whitespace-nowrap">
+                    <div className="pl-5 font-bold text-slate-800 text-sm whitespace-nowrap flex items-center gap-2">
+                      {isModalSearching ? <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" /> : null}
                       Dokąd?
                     </div>
                     <input 
                       type="text" 
                       value={planDestination}
-                      onChange={(e) => {
-                        setPlanDestination(e.target.value);
-                        setShowDestinations(true);
-                        setFocusedIndex(-1); 
-                      }}
+                      onChange={(e) => handleModalDestinationChange(e.target.value)}
                       onFocus={() => setShowDestinations(true)}
                       onKeyDown={(e) => {
                         if (!showDestinations || modalSearchResults.length === 0) return;
@@ -467,51 +581,58 @@ export function Dashboard() {
                         } else if (e.key === 'Enter') {
                           e.preventDefault();
                           if (focusedIndex >= 0 && focusedIndex < modalSearchResults.length) {
-                            setPlanDestination(modalSearchResults[focusedIndex].displayName);
-                            setShowDestinations(false);
-                            setFocusedIndex(-1);
+                            selectDestination(modalSearchResults[focusedIndex]);
                           } else if (modalSearchResults.length > 0) {
-                            setPlanDestination(modalSearchResults[0].displayName);
-                            setShowDestinations(false);
+                            selectDestination(modalSearchResults[0]);
                           }
                         } else if (e.key === 'Escape') {
                           setShowDestinations(false);
                         }
                       }}
-                      placeholder="np. Paryż, Hawaje, Japonia" 
+                      placeholder="Wpisz min. 3 znaki (np. Warszawa, Tokio)..." 
                       className="w-full py-4 pl-4 pr-4 bg-transparent text-slate-900 focus:outline-none font-medium placeholder:font-normal placeholder:text-slate-400" 
                     />
                   </div>
                   
                   <AnimatePresence>
-                    {showDestinations && planDestination.length > 0 && modalSearchResults.length > 0 && (
+                    {showDestinations && planDestination.trim().length >= 3 && modalSearchResults.length > 0 && (
                       <motion.div 
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-[70] overflow-hidden max-h-64 overflow-y-auto"
                       >
-                        {modalSearchResults.map((city, index) => (
+                        {modalSearchResults.map((place, index) => (
                           <div 
-                            key={city.id}
-                            onClick={() => {
-                              setPlanDestination(city.displayName);
-                              setShowDestinations(false);
-                              setFocusedIndex(-1);
-                            }}
+                            key={place.place_id || index}
+                            onClick={() => selectDestination(place)}
                             className={`flex items-center justify-between px-5 py-3.5 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
                               focusedIndex === index ? 'bg-slate-100' : 'hover:bg-slate-50'
                             }`}
                           >
-                            <div>
-                              <div className="font-bold text-slate-900">{city.name}</div>
-                              <div className="text-xs text-slate-500 mt-0.5">{city.region}</div>
+                            <div className="pr-4">
+                              <div className="font-bold text-slate-900 text-sm">{place.display_name.split(',')[0]}</div>
+                              <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{place.display_name}</div>
                             </div>
-                            <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">
-                              {city.type}
+                            <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider shrink-0">
+                              {place.kind === 'country' ? 'Kraj' : place.kind === 'region' ? 'Region' : 'Miasto'}
                             </span>
                           </div>
                         ))}
+                      </motion.div>
+                    )}
+
+                    {showDestinations &&
+                      planDestination.trim().length >= 3 &&
+                      !isModalSearching &&
+                      modalSearchResults.length === 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-[70] px-5 py-4 text-sm text-slate-500"
+                      >
+                        Nie znaleziono pasujących miast ani państw.
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -524,7 +645,7 @@ export function Dashboard() {
                       try {
                         startDateRef.current?.showPicker();
                       } catch (e) {
-                        // ignoruj błąd, jeśli picker jest już otwarty
+                        // ignore
                       }
                     }}
                   >
@@ -541,11 +662,7 @@ export function Dashboard() {
                         onChange={(e) => setPlanStartDate(e.target.value)}
                         className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none cursor-pointer" 
                         onClick={(e) => {
-                          try {
-                            e.currentTarget.showPicker();
-                          } catch (err) {
-                            // ignoruj błąd
-                          }
+                          try { e.currentTarget.showPicker(); } catch (err) {}
                         }} 
                       />
                     </div>
@@ -557,7 +674,7 @@ export function Dashboard() {
                       try {
                         endDateRef.current?.showPicker();
                       } catch (e) {
-                        // ignoruj błąd, jeśli picker jest już otwarty
+                        // ignore
                       }
                     }}
                   >
@@ -574,11 +691,7 @@ export function Dashboard() {
                         onChange={(e) => setPlanEndDate(e.target.value)}
                         className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none cursor-pointer" 
                         onClick={(e) => {
-                          try {
-                            e.currentTarget.showPicker();
-                          } catch (err) {
-                            // ignoruj błąd
-                          }
+                          try { e.currentTarget.showPicker(); } catch (err) {}
                         }}
                       />
                     </div>
