@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Globe2, X, Mail, Lock, User as UserIcon, Eye, EyeOff, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react';
@@ -38,6 +39,8 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
     return isValid ? 'text-emerald-600 font-medium' : 'text-red-500';
   };
 
+  const navigate = useNavigate();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -46,6 +49,10 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
       if (initialMode === 'reset') {
         alert("Wysłano link resetujący na podany e-mail! (Symulacja)");
         onSwitchMode('login');
+      } else {
+        // Przekierowanie na Dashboard po zalogowaniu/rejestracji
+        onClose();
+        navigate('/dashboard');
       }
     }, 1500);
   };

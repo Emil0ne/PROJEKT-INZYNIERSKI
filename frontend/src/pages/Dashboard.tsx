@@ -1,0 +1,611 @@
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MapPin, Plus, LogOut, Globe2, Trophy, Search, X, MoreHorizontal, Trash2, Sparkles, Map as MapIcon, Check, Calendar } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Footer } from '../components/Footer';
+
+const INITIAL_TRIPS = [
+  {
+    id: '1',
+    title: 'Włoskie Wakacje',
+    location: 'Sycylia, Włochy',
+    startDate: '2026-05-25',
+    endDate: '2026-05-29',
+    days: 5,
+    status: 'upcoming',
+    imageUrl: 'https://images.unsplash.com/photo-1516483638261-f408892288c6?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: '2',
+    title: 'Mecz Chelsea',
+    location: 'Londyn, UK',
+    startDate: '2026-12-10',
+    endDate: '2026-12-12',
+    days: 3,
+    status: 'upcoming',
+    imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=800&q=80'
+  }
+];
+
+// Zaktualizowana baza z regionami i typami (tak, jak przyjdzie z prawdziwego API)
+const CITIES_DB = [
+  { id: 'c1', name: 'Paryż', region: 'Île-de-France, Francja', type: 'City', displayName: 'Paryż, Francja', lat: 48.8566, lng: 2.3522 },
+  { id: 'c2', name: 'Kraków', region: 'Województwo małopolskie, Polska', type: 'City', displayName: 'Kraków, Polska', lat: 50.0614, lng: 19.9365 },
+  { id: 'c3', name: 'Krakovec', region: 'Region Środkowoczeski, Czechy', type: 'City', displayName: 'Krakovec, Czechy', lat: 50.0123, lng: 13.6541 },
+  { id: 'c4', name: 'Tokio', region: 'Kanto, Japonia', type: 'City', displayName: 'Tokio, Japonia', lat: 35.6762, lng: 139.6503 },
+  { id: 'c5', name: 'Rzym', region: 'Lacjum, Włochy', type: 'City', displayName: 'Rzym, Włochy', lat: 41.9028, lng: 12.4964 },
+  { id: 'c6', name: 'Irak', region: 'Bliski Wschód', type: 'Country', displayName: 'Irak', lat: 33.2232, lng: 43.6793 },
+];
+
+const popupStyles = `
+  .custom-dark-popup .leaflet-popup-content-wrapper {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .custom-dark-popup .leaflet-popup-content {
+    margin: 0 !important;
+    width: auto !important;
+  }
+  .custom-dark-popup .leaflet-popup-tip-container {
+    display: none !important;
+  }
+`;
+
+const customIconHtml = renderToStaticMarkup(
+  <div className="bg-slate-900 text-white p-1.5 rounded-full shadow-lg border-2 border-white flex items-center justify-center transform transition-transform hover:scale-110">
+    <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+  </div>
+);
+
+const customPin = L.divIcon({
+  html: customIconHtml,
+  className: 'custom-leaflet-icon',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+  popupAnchor: [0, -18],
+});
+
+export function Dashboard() {
+  const navigate = useNavigate();
+  
+  const [trips, setTrips] = useState(INITIAL_TRIPS);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  
+  const [planDestination, setPlanDestination] = useState('');
+  const [showDestinations, setShowDestinations] = useState(false); // Stan modala
+  const [planStartDate, setPlanStartDate] = useState('');
+  const [planEndDate, setPlanEndDate] = useState('');
+  const [planError, setPlanError] = useState('');
+  
+  const [visitedPlaces, setVisitedPlaces] = useState([
+    { id: 'v1', name: 'Londyn', region: 'UK', type: 'City', displayName: 'Londyn, UK', lat: 51.5074, lng: -0.1278 },
+    { id: 'v2', name: 'Wrocław', region: 'Województwo dolnośląskie, Polska', type: 'City', displayName: 'Wrocław, Polska', lat: 51.1079, lng: 17.0385 }
+  ]);
+  
+  const [openPopupPlace, setOpenPopupPlace] = useState<any>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const todayDate = new Date().toISOString().split('T')[0];
+
+  const handleLogout = () => navigate('/');
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (activeMenuId) setActiveMenuId(null);
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDestinations(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeMenuId]);
+
+  const handleToggleMenu = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); 
+    setActiveMenuId(activeMenuId === id ? null : id);
+  };
+
+  const handleDeleteTrip = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setTrips(trips.filter(t => t.id !== id));
+    setActiveMenuId(null);
+  };
+
+  const handleTripClick = (tripId: string) => {
+    navigate(`/planer/${tripId}`);
+  };
+
+  const handleAddPlaceFromSearch = (city: typeof CITIES_DB[0]) => {
+    if (!visitedPlaces.find(p => p.id === city.id)) {
+      setVisitedPlaces([...visitedPlaces, { ...city }]);
+    }
+    setSearchQuery('');
+  };
+
+  const handleTogglePlaceStatus = (city: typeof CITIES_DB[0]) => {
+    const isVisited = visitedPlaces.some(p => p.id === city.id);
+    if (isVisited) {
+      setVisitedPlaces(visitedPlaces.filter(p => p.id !== city.id));
+    } else {
+      setVisitedPlaces([...visitedPlaces, city]);
+    }
+  };
+
+  const handleStartPlanning = () => {
+    setPlanError('');
+    if (!planDestination.trim()) {
+      setPlanError('Proszę określić cel podróży.');
+      return;
+    }
+    if (planStartDate && planEndDate && planEndDate < planStartDate) {
+      setPlanError('Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.');
+      return;
+    }
+    setIsPlanModalOpen(false);
+    setPlanDestination('');
+    setPlanStartDate('');
+    setPlanEndDate('');
+    navigate('/planer/nowy'); 
+  };
+
+  const searchResults = CITIES_DB.filter(c => 
+    c.displayName.toLowerCase().includes(searchQuery.toLowerCase()) && searchQuery.length > 1
+  );
+
+  // Wyszukiwarka dla modala (szuka po nazwie miasta i regionie)
+  const modalSearchResults = CITIES_DB.filter(c => 
+    (c.name.toLowerCase().includes(planDestination.toLowerCase()) || 
+     c.region.toLowerCase().includes(planDestination.toLowerCase())) && 
+     planDestination.length > 0
+  );
+  
+  const displayedPlacesMap = new Map();
+  visitedPlaces.forEach(p => displayedPlacesMap.set(p.id, p));
+  searchResults.forEach(p => displayedPlacesMap.set(p.id, p));
+  if (openPopupPlace) {
+    displayedPlacesMap.set(openPopupPlace.id, openPopupPlace);
+  }
+  const displayedPlaces = Array.from(displayedPlacesMap.values());
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 flex flex-col relative">
+      {!isFullscreen && (
+        <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <Link to="/dashboard" className="flex items-center gap-3 group">
+              <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-sm transition-transform group-hover:scale-105">
+                <Globe2 className="w-6 h-6" />
+              </div>
+              <span className="text-2xl font-black tracking-tight text-slate-900">TravelPlanner</span>
+            </Link>
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-3 mr-4 border-r border-slate-200 pr-6">
+                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold">E</div>
+                <span className="text-sm font-medium text-slate-700">Cześć, Emil</span>
+              </div>
+              <button onClick={handleLogout} className="text-sm font-medium text-slate-500 hover:text-red-500 transition-colors flex items-center gap-2 cursor-pointer">
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:block">Wyloguj</span>
+              </button>
+            </div>
+          </div>
+        </nav>
+      )}
+
+      <main className={`flex-1 w-full ${!isFullscreen ? 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10' : ''}`}>
+        <style>{popupStyles}</style>
+
+        {!isFullscreen && (
+          <div className="space-y-16">
+            
+            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-12 text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-slate-50/50 z-0"></div>
+              <div className="relative z-10 max-w-2xl mx-auto">
+                <div className="inline-flex items-center justify-center p-4 bg-emerald-100 rounded-full mb-6">
+                  <Sparkles className="w-8 h-8 text-emerald-600" />
+                </div>
+                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-4">
+                  Gdzie ruszamy tym razem?
+                </h1>
+                <p className="text-slate-500 text-lg mb-8">
+                  Świat stoi otworem. Wygeneruj spersonalizowany plan podróży z pomocą AI lub zaplanuj wszystko krok po kroku samodzielnie.
+                </p>
+                <button 
+                  onClick={() => setIsPlanModalOpen(true)}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-emerald-200 hover:-translate-y-1 flex items-center justify-center gap-3 mx-auto cursor-pointer"
+                >
+                  <Plus className="w-6 h-6" />
+                  Rozpocznij planowanie
+                </button>
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-end justify-between mb-8 border-b border-slate-200 pb-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">Moje podróże</h2>
+                  <p className="text-slate-500 text-sm mt-1">Ostatnio oglądane i nadchodzące wyjazdy</p>
+                </div>
+              </div>
+
+              {trips.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {trips.map((trip, index) => (
+                    <motion.div 
+                      key={trip.id} 
+                      onClick={() => handleTripClick(trip.id)}
+                      initial={{ opacity: 0, y: 20 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      transition={{ delay: index * 0.1, duration: 0.4 }} 
+                      className="bg-white rounded-3xl border border-slate-100 shadow-lg shadow-slate-200/40 overflow-hidden hover:shadow-2xl hover:shadow-slate-200/60 transition-all group cursor-pointer"
+                    >
+                      <div className="h-48 relative overflow-hidden">
+                        <img src={trip.imageUrl} alt={trip.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
+                        
+                        <div className="absolute top-4 left-4">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-md bg-white/90 text-slate-800 shadow-sm">
+                            Za 4 dni
+                          </span>
+                        </div>
+
+                        <div className="absolute top-4 right-4 flex items-center gap-2">
+                          <div className="relative">
+                            <button 
+                              onClick={(e) => handleToggleMenu(e, trip.id)}
+                              className="p-1.5 rounded-full bg-slate-900/40 text-white hover:bg-slate-900/60 backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
+                            {activeMenuId === trip.id && (
+                              <motion.div 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-1 z-20 border border-slate-100"
+                              >
+                                <button 
+                                  onClick={(e) => handleDeleteTrip(e, trip.id)}
+                                  className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                  Przenieś do kosza
+                                </button>
+                              </motion.div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="absolute bottom-4 left-4 right-4 text-white">
+                          <h3 className="text-xl font-bold mb-1">{trip.title}</h3>
+                          <div className="flex items-center gap-1.5 text-slate-200 text-sm">
+                            <MapPin className="w-4 h-4" /> {trip.location}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-3xl border border-slate-100 border-dashed p-12 text-center text-slate-500">
+                  Nie masz jeszcze żadnych zaplanowanych wyjazdów.
+                </div>
+              )}
+            </section>
+
+            <section>
+              <div className="flex items-end justify-between mb-8 border-b border-slate-200 pb-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                    <MapIcon className="w-6 h-6 text-emerald-500" />
+                    Mapa odkrywcy
+                  </h2>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Buduj swój podróżniczy profil. Śledź kraje i miasta, które już udało Ci się odwiedzić.
+                  </p>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        <div className={
+          isFullscreen 
+            ? "fixed inset-0 z-50 bg-slate-100 flex flex-col" 
+            : "relative w-full h-[500px] bg-slate-100 rounded-[2rem] overflow-hidden border border-slate-200 shadow-inner z-0 mb-12"
+        }>
+          {isFullscreen && (
+            <div className="absolute top-6 right-6 z-[60]">
+              <button 
+                onClick={() => setIsFullscreen(false)}
+                className="bg-white/90 backdrop-blur-sm hover:bg-white text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg border border-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" /> Zamknij
+              </button>
+            </div>
+          )}
+
+          {isFullscreen ? (
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-md z-[60]">
+              <div className="relative shadow-2xl rounded-xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Dodaj miejsce, które odwiedziłeś..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3.5 bg-white rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-lg border-0"
+                />
+              </div>
+              
+              {searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl overflow-hidden z-[60] border border-slate-100">
+                  {searchResults.map(city => (
+                    <button 
+                      key={city.id} 
+                      onClick={() => handleAddPlaceFromSearch(city)}
+                      className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-sm font-medium text-slate-700 transition-colors border-b border-slate-50 flex items-center gap-2"
+                    >
+                      <MapPin className="w-4 h-4 text-emerald-500" />
+                      {city.displayName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="absolute top-6 right-6 z-[10]">
+              <button 
+                onClick={() => setIsFullscreen(true)}
+                className="bg-white/95 hover:bg-white text-slate-800 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md border border-slate-100 transition-all hover:shadow-lg"
+              >
+                Dodaj odwiedzone miejsca
+              </button>
+            </div>
+          )}
+
+          <div 
+            onClick={() => !isFullscreen && setIsFullscreen(true)}
+            className={`absolute top-6 left-6 bg-slate-800 text-white rounded-2xl p-4 shadow-xl flex items-center gap-5 backdrop-blur-md bg-slate-800/95 border border-slate-700 z-[10] transition-transform ${!isFullscreen ? 'cursor-pointer hover:scale-105' : ''}`}
+          >
+            <div className="text-center">
+              <div className="text-2xl font-black">{visitedPlaces.length}</div>
+              <div className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mt-0.5">Kraj</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-black">{visitedPlaces.length}</div>
+              <div className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mt-0.5">Miasto</div>
+            </div>
+            <div className="flex items-center gap-2 border-l border-slate-600 pl-4 ml-1">
+              <div className="bg-amber-400/20 p-1.5 rounded-lg">
+                <Trophy className="w-5 h-5 text-amber-400" />
+              </div>
+              <span className="font-medium text-sm">Początkujący<br/>odkrywca</span>
+            </div>
+          </div>
+
+          <MapContainer 
+            key={isFullscreen ? 'fullscreen' : 'windowed'} 
+            center={[51.5074, 10.0]} 
+            zoom={4} 
+            className="w-full h-full z-0" 
+            zoomControl={false}
+          >
+            <ZoomControl position="bottomright" />
+            <TileLayer
+              url="https://mt1.google.com/vt/lyrs=m&hl=pl&x={x}&y={y}&z={z}"
+              attribution='&copy; Google Maps'
+            />
+            {displayedPlaces.map(place => {
+              const isVisited = visitedPlaces.some(p => p.id === place.id);
+              return (
+                <Marker 
+                  key={place.id} 
+                  position={[place.lat, place.lng]} 
+                  icon={customPin}
+                  eventHandlers={{
+                    popupopen: () => setOpenPopupPlace(place),
+                    popupclose: () => setOpenPopupPlace(null)
+                  }}
+                >
+                  <Popup autoPan={false} closeButton={false} className="custom-dark-popup">
+                    <div className="bg-slate-800/95 backdrop-blur-md rounded-xl p-4 shadow-2xl border border-slate-700 min-w-[240px]">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-bold text-white text-base m-0 leading-tight">
+                          {place.name}
+                        </span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePlaceStatus(place);
+                          }}
+                          className="flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-white text-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm whitespace-nowrap"
+                        >
+                          {isVisited ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-slate-800" /> Dodano
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5 text-slate-800" /> Dodaj
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+        </div>
+      </main>
+      
+      {!isFullscreen && <Footer />}
+
+      <AnimatePresence>
+        {isPlanModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+            <div 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer" 
+              onClick={() => {
+                setIsPlanModalOpen(false);
+                setPlanDestination('');
+                setPlanStartDate('');
+                setPlanEndDate('');
+                setPlanError('');
+              }}
+            ></div>
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl p-8 md:p-12 z-10 overflow-visible"
+            >
+              <button 
+                onClick={() => {
+                  setIsPlanModalOpen(false);
+                  setPlanDestination('');
+                  setPlanStartDate('');
+                  setPlanEndDate('');
+                  setPlanError('');
+                }} 
+                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer z-50"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              
+              <h2 className="text-3xl font-black text-slate-900 mb-10 text-center">
+                Zaplanuj nową podróż
+              </h2>
+              
+              <div className="space-y-5 relative">
+                
+                {/* AUTOCOMPLETE CONTAINER */}
+                <div className="relative" ref={dropdownRef}>
+                  <div className="border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all bg-white flex items-center relative z-20">
+                    <div className="pl-5 font-bold text-slate-800 text-sm whitespace-nowrap">
+                      Dokąd?
+                    </div>
+                    <input 
+                      type="text" 
+                      value={planDestination}
+                      onChange={(e) => {
+                        setPlanDestination(e.target.value);
+                        setShowDestinations(true);
+                      }}
+                      onFocus={() => setShowDestinations(true)}
+                      placeholder="np. Paryż, Hawaje, Japonia" 
+                      className="w-full py-4 pl-4 pr-4 bg-transparent text-slate-900 focus:outline-none font-medium placeholder:font-normal placeholder:text-slate-400" 
+                    />
+                  </div>
+                  
+                  {/* DROPDOWN MENU */}
+                  <AnimatePresence>
+                    {showDestinations && planDestination.length > 0 && modalSearchResults.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-[70] overflow-hidden max-h-64 overflow-y-auto"
+                      >
+                        {modalSearchResults.map(city => (
+                          <div 
+                            key={city.id}
+                            onClick={() => {
+                              setPlanDestination(city.displayName);
+                              setShowDestinations(false);
+                            }}
+                            className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors"
+                          >
+                            <div>
+                              <div className="font-bold text-slate-900">{city.name}</div>
+                              <div className="text-xs text-slate-500 mt-0.5">{city.region}</div>
+                            </div>
+                            <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">
+                              {city.type}
+                            </span>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                  <div className="relative flex-1 p-2 sm:border-r border-slate-200 focus-within:bg-slate-50 transition-colors">
+                    <label className="flex flex-col cursor-text">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-3 pt-2 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Data rozpoczęcia
+                      </span>
+                      <input 
+                        type="date"
+                        min={todayDate}
+                        value={planStartDate}
+                        onChange={(e) => setPlanStartDate(e.target.value)}
+                        className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none" 
+                      />
+                    </label>
+                  </div>
+                  
+                  <div className="relative flex-1 p-2 border-t sm:border-t-0 border-slate-200 focus-within:bg-slate-50 transition-colors">
+                    <label className="flex flex-col cursor-text">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-3 pt-2 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Data zakończenia
+                      </span>
+                      <input 
+                        type="date" 
+                        min={planStartDate || todayDate}
+                        value={planEndDate}
+                        onChange={(e) => setPlanEndDate(e.target.value)}
+                        className="w-full bg-transparent px-3 py-1.5 text-slate-900 font-bold focus:outline-none" 
+                      />
+                    </label>
+                  </div>
+                </div>
+                
+                {planError && (
+                  <div className="text-red-500 font-bold text-sm text-center pt-2">
+                    {planError}
+                  </div>
+                )}
+                
+                <div className="pt-6 flex flex-col items-center gap-4">
+                  <button 
+                    onClick={handleStartPlanning}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-12 py-4 rounded-full font-bold text-lg transition-all shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
+                  >
+                    Zacznij planować
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsPlanModalOpen(false);
+                      setPlanDestination('');
+                      setPlanStartDate('');
+                      setPlanEndDate('');
+                      setPlanError('');
+                    }}
+                    className="text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  >
+                    Anuluj
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

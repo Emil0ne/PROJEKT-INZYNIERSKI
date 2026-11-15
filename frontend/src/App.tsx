@@ -1,14 +1,28 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
 import { Home } from './pages/Home';
 import { NotFound } from './pages/NotFound';
+import { Dashboard } from './pages/Dashboard'; // <--- DODAJ TO
+
+// Pomocniczy komponent do warunkowego renderowania Nav/Footer
+function Layout({ children, onOpenAuth }: { children: React.ReactNode, onOpenAuth: any }) {
+  const location = useLocation();
+  const isDashboard = location.pathname.startsWith('/dashboard');
+
+  return (
+    <>
+      {!isDashboard && <Navbar onOpenAuth={onOpenAuth} />}
+      <main className="flex-1">{children}</main>
+      {!isDashboard && <Footer />}
+    </>
+  );
+}
 
 export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  // Dodaliśmy tryb 'reset' do typu
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'reset'>('login');
 
   const openAuth = (mode: 'login' | 'register' | 'reset') => {
@@ -19,16 +33,13 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 overflow-x-hidden flex flex-col">
-        <Navbar onOpenAuth={openAuth} />
-        
-        <main className="flex-1">
+        <Layout onOpenAuth={openAuth}>
           <Routes>
             <Route path="/" element={<Home onOpenAuth={openAuth} />} />
+            <Route path="/dashboard" element={<Dashboard />} /> {/* <--- DODAJ TO */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </main>
-
-        <Footer />
+        </Layout>
 
         <AuthModal 
           isOpen={isAuthOpen} 
