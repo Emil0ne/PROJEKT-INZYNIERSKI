@@ -11,3 +11,20 @@
 body {
   @apply antialiased bg-[#F8FAFC];
 }
+
+/* Czyszczenie domyślnego dymka Leaflet dla klasy custom-dark-popup */
+.custom-dark-popup .leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.custom-dark-popup .leaflet-popup-tip-container {
+  display: none !important;
+}
+
+.custom-dark-popup .leaflet-popup-content {
+  margin: 0 !important;
+  width: max-content !important;
+}
