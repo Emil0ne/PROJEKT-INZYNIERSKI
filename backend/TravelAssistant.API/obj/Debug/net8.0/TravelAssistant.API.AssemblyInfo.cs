@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("de874fa4-9fff-4a04-a9d2-fd62062b37b4")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("TravelAssistant.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fa6cb97f4676a89ccf3ea9fbdbac1a751eac72f3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+99693f7133e3bfb8626d923b19e0c51cb3340e54")]
 [assembly: System.Reflection.AssemblyProductAttribute("TravelAssistant.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TravelAssistant.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
