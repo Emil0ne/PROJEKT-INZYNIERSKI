@@ -5,35 +5,39 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
 
-// 1. Styl pinezki dla MAPY ODKRYWCY (Dashboard)
 const explorerPinHtml = renderToStaticMarkup(
-  <div className="bg-slate-900 text-white p-1.5 rounded-full shadow-lg border-2 border-white flex items-center justify-center transform transition-transform hover:scale-110">
-    <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
-  </div>
+  <div className="w-3.5 h-3.5 bg-slate-900 rounded-full shadow-md border-[2px] border-white ring-2 ring-black/10 transform transition-transform hover:scale-125"></div>
 );
 
 const explorerPin = L.divIcon({
   html: explorerPinHtml,
-  className: 'custom-leaflet-icon',
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-  popupAnchor: [0, -14],
+  className: 'custom-leaflet-icon bg-transparent border-0',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+  popupAnchor: [0, -10],
 });
 
-// 2. Styl pinezki dla PLANERA (Nowoczesny, zielony pin z ikoną)
-const plannerPinHtml = renderToStaticMarkup(
-  <div className="bg-emerald-500 text-white p-2 rounded-full shadow-xl border-2 border-white flex items-center justify-center transform transition-transform hover:scale-110">
-    <MapPin className="w-3.5 h-3.5 fill-current" />
-  </div>
-);
+// Generator pinezki obsługujący zarówno klasy Tailwinda jak i kolory HEX / RGB
+const createPlannerPin = (colorValue: string) => {
+  const isCustomColor = colorValue && colorValue.startsWith('#');
+  const style = isCustomColor ? { backgroundColor: colorValue } : {};
+  const className = isCustomColor 
+    ? "w-6 h-6 text-white rounded-full shadow-lg border-2 border-white flex items-center justify-center transform transition-transform hover:scale-125"
+    : `w-6 h-6 ${colorValue || 'bg-emerald-500'} text-white rounded-full shadow-lg border-2 border-white flex items-center justify-center transform transition-transform hover:scale-125`;
 
-const plannerPin = L.divIcon({
-  html: plannerPinHtml,
-  className: 'custom-planner-leaflet-icon',
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-  popupAnchor: [0, -17],
-});
+  const html = renderToStaticMarkup(
+    <div className={className} style={style}>
+      <div className="w-2 h-2 bg-white rounded-full"></div>
+    </div>
+  );
+  return L.divIcon({
+    html,
+    className: 'custom-planner-leaflet-icon bg-transparent border-0',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+  });
+};
 
 const DEFAULT_CENTER: [number, number] = [50.0614, 19.9365];
 
@@ -43,6 +47,7 @@ interface Place {
   displayName?: string;
   lat: number;
   lng: number;
+  color?: string;
 }
 
 interface TravelMapProps {
@@ -53,20 +58,24 @@ interface TravelMapProps {
   zoomControl?: boolean;
   center?: [number, number];
   zoom?: number;
-  isPlannerMode?: boolean; // Flaga określająca czy to mapa w Planerze
-  
+  isPlannerMode?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
   clickedPoint?: { lat: number, lng: number, name: string, isLoading: boolean } | null;
   onAddClickedPoint?: () => void;
   onCloseClickedPoint?: () => void;
 }
 
+// Komponent do płynnego przesuwania mapy
 function MapUpdater({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap();
   const [lat, lng] = center;
+  
   useEffect(() => {
-    map.flyTo([lat, lng], zoom, { animate: true, duration: 1.5 });
+    if (!isNaN(lat) && !isNaN(lng)) {
+      map.flyTo([lat, lng], zoom, { animate: true, duration: 1.2 });
+    }
   }, [lat, lng, zoom, map]);
+  
   return null;
 }
 
@@ -116,7 +125,9 @@ export function TravelMap({
       
       {displayedPlaces.map(place => {
         const isVisited = visitedPlaces.some(p => p.id === place.id);
-        const currentPin = isPlannerMode ? plannerPin : explorerPin;
+        const currentPin = isPlannerMode 
+          ? createPlannerPin(place.color || 'bg-emerald-500') 
+          : explorerPin;
 
         return (
           <Marker 
@@ -135,7 +146,7 @@ export function TravelMap({
                     <MapPin className="w-4 h-4 text-emerald-400" />
                   </div>
                   <span className="font-bold text-white text-xs truncate leading-snug">
-                    {place.name}
+                    {place.displayName || place.name}
                   </span>
                 </div>
                 {!isPlannerMode && (
@@ -156,7 +167,6 @@ export function TravelMap({
         );
       })}
 
-      {/* KLIKNIĘTE MIEJSCE W PLANERZE */}
       {clickedPoint && (
         <Popup 
           position={[clickedPoint.lat, clickedPoint.lng]} 
@@ -195,7 +205,6 @@ export function TravelMap({
           </div>
         </Popup>
       )}
-
     </MapContainer>
   );
 }

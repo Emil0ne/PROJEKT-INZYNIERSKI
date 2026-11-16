@@ -74,6 +74,7 @@ export function Dashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const startDateRef = useRef<HTMLInputElement>(null);
   const endDateRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
   
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -110,6 +111,57 @@ export function Dashboard() {
   // Po zamknięciu modala zapominamy wybrane miejsce
   useEffect(() => {
     if (!isPlanModalOpen) setSelectedPlace(null);
+  }, [isPlanModalOpen]);
+
+  useEffect(() => {
+    if (focusedIndex >= 0 && showDestinations) {
+      const element = document.getElementById(`place-option-${focusedIndex}`);
+      if (element) {
+        element.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [focusedIndex, showDestinations]);
+
+  // Focus trap dla modala "Zaplanuj nową podróż"
+  useEffect(() => {
+    if (!isPlanModalOpen || !modalRef.current) return;
+
+    const modalElement = modalRef.current;
+    
+    // Pobierz wszystkie interaktywne elementy wewnątrz modala
+    const focusableElements = modalElement.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0] as HTMLElement;
+    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+    // Automatycznie ustaw focus na pierwszym polu, np. "Dokąd?" po otwarciu
+    firstElement.focus();
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        if (e.shiftKey) { // Nawigacja wstecz (Shift + Tab)
+          if (document.activeElement === firstElement) {
+            lastElement.focus();
+            e.preventDefault(); // Zapobiega domyślnemu wyjściu poza modal
+          }
+        } else { // Zwykły Tab (do przodu)
+          if (document.activeElement === lastElement) {
+            firstElement.focus();
+            e.preventDefault(); // Zapobiega wyjściu
+          }
+        }
+      }
+    };
+
+    modalElement.addEventListener('keydown', handleTab);
+    
+    return () => {
+      modalElement.removeEventListener('keydown', handleTab);
+    };
   }, [isPlanModalOpen]);
 
   const selectDestination = (place: any) => {
@@ -242,8 +294,6 @@ export function Dashboard() {
       return;
     }
 
-    // Cel musi pochodzić z listy podpowiedzi (stąd mamy współrzędne dla mapy w planerze).
-    // Jeśli użytkownik tylko wpisał tekst, bierzemy pierwszą podpowiedź.
     const place =
       selectedPlace ||
       (!isModalSearching && modalSearchResults.length > 0 ? modalSearchResults[0] : null);
@@ -255,10 +305,17 @@ export function Dashboard() {
       setPlanError('Proszę wybrać datę rozpoczęcia i zakończenia podróży.');
       return;
     }
+
+    if (planStartDate < todayDate) {
+      setPlanError('Data rozpoczęcia nie może być datą z przeszłości.');
+      return;
+    }
+
     if (planEndDate < planStartDate) {
       setPlanError('Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.');
       return;
     }
+    
     setIsPlanModalOpen(false);
     
     const params = new URLSearchParams();
@@ -277,7 +334,7 @@ export function Dashboard() {
     navigate(`/planer/nowy?${params.toString()}`); 
   };
 
-  // Wyszukiwarka dla mapy odkrywcy
+  // Wyszukiwarka dla mapy odkrywcy (teraz na Open-Meteo)
   const [explorerSearchResults, setExplorerSearchResults] = useState<any[]>([]);
   useEffect(() => {
     if (searchQuery.trim().length < 3) {
@@ -285,11 +342,38 @@ export function Dashboard() {
       return;
     }
     const timer = setTimeout(() => {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&accept-language=pl`)
+      fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchQuery.trim())}&count=6&language=pl&format=json`)
         .then(res => res.json())
-        .then(data => setExplorerSearchResults(data || []))
+        .then(data => {
+          if (!data.results) {
+            setExplorerSearchResults([]);
+            return;
+          }
+          const mapped = data.results.map((r: any) => {
+            
+            // ZMIENIONO: Bierzemy tylko nazwę i kraj, ignorujemy r.admin1 (województwo)
+            const display_name = [r.name, r.country]
+              .filter(Boolean)
+              .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i)
+              .join(', ');
+              
+            return {
+              place_id: String(r.id),
+              display_name,
+              lat: r.latitude,
+              lon: r.longitude,
+            };
+          });
+          
+          // Usunięcie duplikatów z listy
+          const unique = mapped.filter(
+            (item: any, i: number, arr: any[]) =>
+              i === arr.findIndex((t) => t.display_name === item.display_name)
+          );
+          setExplorerSearchResults(unique);
+        })
         .catch(() => setExplorerSearchResults([]));
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -506,7 +590,7 @@ export function Dashboard() {
 
           <TravelMap 
             key={isFullscreen ? 'fullscreen' : 'windowed'} 
-            places={explorerSearchResults}
+            places={[]} 
             visitedPlaces={visitedPlaces}
             onTogglePlace={(place) => handleTogglePlaceStatus(place as any)}
           />
@@ -534,6 +618,7 @@ export function Dashboard() {
             ></div>
             
             <motion.div
+              ref={modalRef}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -604,6 +689,7 @@ export function Dashboard() {
                       >
                         {modalSearchResults.map((place, index) => (
                           <div 
+                            id={`place-option-${index}`}
                             key={place.place_id || index}
                             onClick={() => selectDestination(place)}
                             className={`flex items-center justify-between px-5 py-3.5 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
