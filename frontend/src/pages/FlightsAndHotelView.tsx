@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
-import { Plane, Hotel, Plus, Trash2 } from 'lucide-react';
-import type { BudgetItem } from '../types/budget';
-import { Button, Card, EmptyState, IconButton, Input, SectionHeader } from '../components/ui';
+import { useState, useRef, useEffect } from 'react';
+import { Plane, Hotel, Bus, Plus, Trash2, Loader2 } from 'lucide-react';
+import type { BudgetCategory, BudgetItem } from '../types/budget';
+import { Button, EmptyState, IconButton, Input } from '../components/ui';
 import { LAYER } from '../lib/layers';
 import { DEFAULT_CURRENCY } from '../lib/constants';
 import { searchAirports } from '../lib/geocoding';
@@ -13,215 +13,228 @@ interface FlightsAndHotelViewProps {
   currency?: string;
 }
 
-export function FlightsAndHotelView({ customItems, setCustomItems, currency = DEFAULT_CURRENCY }: FlightsAndHotelViewProps) {
-  const [flightFrom, setFlightFrom] = useState('');
-  const [flightTo, setFlightTo] = useState('');
-  const [flightCost, setFlightCost] = useState('');
-  
-  const [hotelName, setHotelName] = useState('');
-  const [hotelCost, setHotelCost] = useState('');
+type BookingType = 'flight' | 'hotel' | 'transport';
 
-  const [fromResults, setFromResults] = useState<GeocodedPlace[]>([]);
-  const [toResults, setToResults] = useState<GeocodedPlace[]>([]);
-  const fromTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+const TYPES: { key: BookingType; label: string; category: BudgetCategory; icon: React.ReactNode }[] = [
+  { key: 'flight', label: 'Lot', category: 'Loty', icon: <Plane className="w-4 h-4" /> },
+  { key: 'hotel', label: 'Nocleg', category: 'Hotel', icon: <Hotel className="w-4 h-4" /> },
+  { key: 'transport', label: 'Transport', category: 'Transport', icon: <Bus className="w-4 h-4" /> },
+];
 
-  const searchAirport = (query: string, setter: (res: GeocodedPlace[]) => void) => {
-    if (query.trim().length < 3) {
-      setter([]);
+const BOOKING_CATEGORIES: BudgetCategory[] = ['Loty', 'Hotel', 'Transport'];
+
+/** Pole lotniska: zapytania do API z debounce; spóźnione odpowiedzi są odrzucane. */
+function AirportField({ label, placeholder, value, onChange }: { label: string; placeholder: string; value: string; onChange: (v: string) => void }) {
+  const [results, setResults] = useState<GeocodedPlace[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const requestId = useRef(0);
+
+  const cancelPending = () => {
+    if (timer.current) clearTimeout(timer.current);
+    controller.current?.abort();
+    controller.current = null;
+    requestId.current++;
+  };
+
+  useEffect(() => cancelPending, []);
+
+  const handleChange = (text: string) => {
+    onChange(text);
+    cancelPending();
+    const id = requestId.current;
+    const query = text.trim();
+
+    if (query.length < 3) {
+      setResults([]);
+      setIsLoading(false);
       return;
     }
-    searchAirports(query)
-      .then(setter)
-      .catch(() => setter([]));
+
+    // Stare podpowiedzi znikają od razu; do czasu odpowiedzi API pokazujemy spinner
+    setResults([]);
+    setIsLoading(true);
+    timer.current = setTimeout(() => {
+      const ctrl = new AbortController();
+      controller.current = ctrl;
+      searchAirports(query, 5, ctrl.signal)
+        .then(res => { if (id === requestId.current) setResults(res); })
+        .catch(() => { if (id === requestId.current) setResults([]); })
+        .finally(() => { if (id === requestId.current) setIsLoading(false); });
+    }, 400);
   };
 
-  const handleAddFlight = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!flightFrom || !flightTo || !flightCost) return;
-
-    const newItem: BudgetItem = {
-      id: `flight-${Date.now()}`,
-      title: `Lot: ${flightFrom.split(',')[0]} → ${flightTo.split(',')[0]}`,
-      category: 'Loty',
-      cost: Number(flightCost),
-      currency
-    };
-
-    setCustomItems([...customItems, newItem]);
-    setFlightFrom('');
-    setFlightTo('');
-    setFlightCost('');
+  const select = (place: GeocodedPlace) => {
+    cancelPending();
+    onChange(place.displayName);
+    setResults([]);
+    setIsLoading(false);
   };
 
-  const handleAddHotel = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!hotelName.trim() || !hotelCost) return;
+  return (
+    <div className="relative flex-1 min-w-[160px]">
+      <Input
+        type="text"
+        aria-label={label}
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={() => setResults([])}
+        placeholder={placeholder}
+        autoComplete="off"
+        rightSlot={isLoading ? <Loader2 className="w-4 h-4 text-stone-400 animate-spin" /> : undefined}
+      />
+      {results.length > 0 && (
+        <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-stone-200/80 rounded-lg shadow-sm ${LAYER.dropdown} max-h-48 overflow-y-auto`}>
+          {results.map((r) => (
+            <button type="button" key={r.id} onMouseDown={(e) => { e.preventDefault(); select(r); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-stone-100 cursor-pointer border-b border-stone-100 last:border-0 truncate transition-colors">
+              {r.displayName}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-    const newItem: BudgetItem = {
-      id: `hotel-${Date.now()}`,
-      title: `Hotel: ${hotelName}`,
-      category: 'Hotel',
-      cost: Number(hotelCost),
-      currency
-    };
+export function FlightsAndHotelView({ customItems, setCustomItems, currency = DEFAULT_CURRENCY }: FlightsAndHotelViewProps) {
+  const [type, setType] = useState<BookingType>('flight');
+
+  const [flightFrom, setFlightFrom] = useState('');
+  const [flightTo, setFlightTo] = useState('');
+  const [hotelName, setHotelName] = useState('');
+  const [transportName, setTransportName] = useState('');
+  const [cost, setCost] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cost) return;
+
+    let newItem: BudgetItem;
+    if (type === 'flight') {
+      if (!flightFrom || !flightTo) return;
+      newItem = {
+        id: `flight-${Date.now()}`,
+        title: `Lot: ${flightFrom.split(',')[0]} → ${flightTo.split(',')[0]}`,
+        category: 'Loty',
+        cost: Number(cost),
+        currency,
+      };
+      setFlightFrom('');
+      setFlightTo('');
+    } else if (type === 'hotel') {
+      if (!hotelName.trim()) return;
+      newItem = {
+        id: `hotel-${Date.now()}`,
+        title: `Hotel: ${hotelName}`,
+        category: 'Hotel',
+        cost: Number(cost),
+        currency,
+      };
+      setHotelName('');
+    } else {
+      if (!transportName.trim()) return;
+      newItem = {
+        id: `transport-${Date.now()}`,
+        title: `Transport: ${transportName}`,
+        category: 'Transport',
+        cost: Number(cost),
+        currency,
+      };
+      setTransportName('');
+    }
 
     setCustomItems([...customItems, newItem]);
-    setHotelName('');
-    setHotelCost('');
+    setCost('');
   };
 
   const removeItem = (id: string) => {
     setCustomItems(customItems.filter(i => i.id !== id));
   };
 
-  const flightsAndHotels = customItems.filter(i => i.category === 'Loty' || i.category === 'Hotel');
+  const bookings = customItems.filter(i => BOOKING_CATEGORIES.includes(i.category));
+  const bookingsTotal = bookings.reduce((acc, i) => acc + (i.cost || 0), 0);
 
   return (
-    <div className="max-w-4xl mx-auto p-5 space-y-5">
-
-      <Card padding="lg">
-        <SectionHeader
-          size="sm"
-          align="left"
-          icon={<Plane />}
-          title="Loty i Nocleg"
-          description="Zarządzaj rezerwacjami transportu lotniczego oraz miejscami noclegowymi."
-        />
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        <Card className="space-y-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-            <Plane className="w-4 h-4 text-stone-600" /> Dodaj Lot
-          </h3>
-          <form onSubmit={handleAddFlight} className="space-y-3 relative">
-            <div className="relative">
-              <Input
-                type="text"
-                aria-label="Lotnisko wylotu"
-                value={flightFrom}
-                onChange={(e) => {
-                  setFlightFrom(e.target.value);
-                  if (fromTimeout.current) clearTimeout(fromTimeout.current);
-                  fromTimeout.current = setTimeout(() => searchAirport(e.target.value, setFromResults), 400);
-                }}
-                placeholder="Skąd? (np. Warszawa-Okęcie)"
-              />
-              {fromResults.length > 0 && (
-                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-stone-200/80 rounded-lg shadow-sm ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
-                  {fromResults.map((r) => (
-                    <button type="button" key={r.id} onClick={() => { setFlightFrom(r.displayName); setFromResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-stone-100 cursor-pointer border-b border-stone-100 last:border-0 truncate transition-colors">
-                      {r.displayName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative">
-              <Input
-                type="text"
-                aria-label="Lotnisko docelowe"
-                value={flightTo}
-                onChange={(e) => {
-                  setFlightTo(e.target.value);
-                  if (toTimeout.current) clearTimeout(toTimeout.current);
-                  toTimeout.current = setTimeout(() => searchAirport(e.target.value, setToResults), 400);
-                }}
-                placeholder="Dokąd? (np. Katania)"
-              />
-              {toResults.length > 0 && (
-                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-stone-200/80 rounded-lg shadow-sm ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
-                  {toResults.map((r) => (
-                    <button type="button" key={r.id} onClick={() => { setFlightTo(r.displayName); setToResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-stone-100 cursor-pointer border-b border-stone-100 last:border-0 truncate transition-colors">
-                      {r.displayName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Input
-              type="number"
-              aria-label="Koszt lotu"
-              value={flightCost}
-              onChange={(e) => setFlightCost(e.target.value)}
-              placeholder={`Koszt (${currency})`}
-            />
-
-            <Button type="submit" fullWidth>
-              <Plus className="w-4 h-4" /> Dodaj lot
-            </Button>
-          </form>
-        </Card>
-
-        <Card className="space-y-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-            <Hotel className="w-4 h-4 text-stone-600" /> Dodaj Nocleg / Hotel
-          </h3>
-          <form onSubmit={handleAddHotel} className="space-y-3">
-            <Input
-              type="text"
-              aria-label="Nazwa noclegu"
-              value={hotelName}
-              onChange={(e) => setHotelName(e.target.value)}
-              placeholder="Nazwa hotelu / apartamentu"
-            />
-            <Input
-              type="number"
-              aria-label="Koszt noclegu"
-              value={hotelCost}
-              onChange={(e) => setHotelCost(e.target.value)}
-              placeholder={`Całkowity koszt noclegu (${currency})`}
-            />
-            <div className="pt-9">
-              <Button type="submit" fullWidth>
-                <Plus className="w-4 h-4" /> Dodaj nocleg
-              </Button>
-            </div>
-          </form>
-        </Card>
-
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-zinc-900">Loty i nocleg</h2>
+          <p className="text-sm text-stone-500 mt-0.5">{bookings.length} {bookings.length === 1 ? 'rezerwacja' : 'rezerwacji'}</p>
+        </div>
+        <div className="text-right">
+          <div className="text-xs font-medium text-stone-500">Razem</div>
+          <div className="text-lg font-semibold tracking-tight text-zinc-900 tabular-nums">{bookingsTotal} {currency}</div>
+        </div>
       </div>
 
-      <Card className="space-y-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-          <Plane className="w-4 h-4 text-stone-600" /> Twoje rezerwacje lotów i hoteli
-        </h3>
+      {/* Inline form */}
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2 py-3 border-y border-stone-200">
+        <div role="tablist" aria-label="Typ rezerwacji" className="inline-flex p-0.5 bg-stone-200/60 rounded-lg shrink-0">
+          {TYPES.map(t => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={type === t.key}
+              onClick={() => setType(t.key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${type === t.key ? 'bg-white text-zinc-900 shadow-xs' : 'text-stone-600 hover:text-zinc-900'}`}
+            >
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
 
-        <div className="divide-y divide-stone-200 border-y border-stone-200">
-          {flightsAndHotels.length > 0 ? (
-            flightsAndHotels.map(item => (
-              <div key={item.id} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-stone-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="bg-stone-100 p-2.5 rounded-lg text-stone-600">
-                    {item.category === 'Loty' ? <Plane className="w-4 h-4" /> : <Hotel className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <div className="font-medium text-zinc-900 text-sm">{item.title}</div>
-                    <div className="text-xs text-stone-500 uppercase font-semibold tracking-wider">{item.category}</div>
-                  </div>
+        {type === 'flight' && (
+          <>
+            <AirportField label="Lotnisko wylotu" placeholder="Skąd? (np. KRK, Kraków)" value={flightFrom} onChange={setFlightFrom} />
+            <AirportField label="Lotnisko docelowe" placeholder="Dokąd? (np. CTA, Katania)" value={flightTo} onChange={setFlightTo} />
+          </>
+        )}
+        {type === 'hotel' && (
+          <div className="flex-1 min-w-[200px]">
+            <Input type="text" aria-label="Nazwa noclegu" value={hotelName} onChange={(e) => setHotelName(e.target.value)} placeholder="Nazwa hotelu / apartamentu" />
+          </div>
+        )}
+        {type === 'transport' && (
+          <div className="flex-1 min-w-[200px]">
+            <Input type="text" aria-label="Opis transportu" value={transportName} onChange={(e) => setTransportName(e.target.value)} placeholder="np. Pociąg Kraków → Wrocław" />
+          </div>
+        )}
+
+        <div className="w-32">
+          <Input type="number" aria-label="Koszt rezerwacji" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={`Koszt (${currency})`} />
+        </div>
+        <Button type="submit"><Plus className="w-4 h-4" /> Dodaj</Button>
+      </form>
+
+      {/* Lista rezerwacji */}
+      {bookings.length > 0 ? (
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {bookings.map(item => {
+            const t = TYPES.find(x => x.category === item.category) ?? TYPES[0];
+            return (
+              <li key={item.id} className="group flex items-stretch bg-white border border-stone-200 rounded-lg overflow-hidden hover:border-stone-300 transition-colors">
+                <div className="flex items-center justify-center w-12 bg-stone-100 text-stone-600 border-r border-dashed border-stone-300 shrink-0">
+                  {t.icon}
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-zinc-900 text-sm">{item.cost} {currency}</span>
+                <div className="flex-1 min-w-0 px-3 py-2.5">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-stone-400">{t.label}</div>
+                  <div className="text-sm font-medium text-zinc-900 truncate">{item.title}</div>
+                </div>
+                <div className="flex items-center gap-1 pr-2 shrink-0">
+                  <span className="text-sm font-semibold text-zinc-900 tabular-nums">{item.cost} {currency}</span>
                   <IconButton label="Usuń rezerwację" variant="danger" onClick={() => removeItem(item.id)}>
                     <Trash2 className="w-4 h-4" />
                   </IconButton>
                 </div>
-              </div>
-            ))
-          ) : (
-            <EmptyState
-              compact
-              title="Brak zaplanowanych lotów lub hoteli."
-              description="Użyj formularzy powyżej, aby je dodać."
-            />
-          )}
-        </div>
-      </Card>
-
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <EmptyState compact title="Brak zaplanowanych rezerwacji." description="Wybierz typ i dodaj pierwszą rezerwację powyżej." />
+      )}
     </div>
   );
 }

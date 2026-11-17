@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, Navigate } from 'react-router-dom';
-import { MapPin, Search, Loader2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MapPin, Search, Loader2, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // DND-KIT IMPORTS
 import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 
-import { TravelMap } from '../components/TravelMap';
+import { TravelMap, type MapRoute } from '../components/TravelMap';
+import { AssistantDrawer } from '../components/planer/AssistantDrawer';
 import { AppHeader } from '../components/AppHeader';
 import { PlanerSidebar } from '../components/planer/PlanerSidebar';
 import { DayScheduleView, type ScheduleItemChanges } from '../components/planer/DayScheduleView';
 import { PackingView } from '../components/planer/PackingView';
-import { Input } from '../components/ui';
+import { Button, Input } from '../components/ui';
 import { LAYER } from '../lib/layers';
 import { OverviewView } from './OverviewView';
 import { BudgetView } from './BudgetView';
@@ -21,9 +22,10 @@ import { DEFAULT_BUDGET_ITEMS, DEFAULT_PACKING_ITEMS, getTripById } from '../moc
 import { DEFAULT_CENTER, DEFAULT_CURRENCY, DEFAULT_PIN_COLOR, DEFAULT_TOTAL_BUDGET } from '../lib/constants';
 import { generateTripDays } from '../lib/dates';
 import { biasDeltaForZoom, geocodeAddress, reverseGeocode, searchPlaces, zoomForKind } from '../lib/geocoding';
+import { generateTripPlan } from '../services/assistantApi';
 import type { BudgetItem } from '../types/budget';
 import type { ClickedPoint, GeocodedPlace, Place } from '../types/place';
-import type { PackingItem, ScheduleItem, TripDay } from '../types/trip';
+import type { PackingItem, ScheduleItem, Trip, TripDay } from '../types/trip';
 
 // --- GŁÓWNY KOMPONENT ---
 export function Planer() {
@@ -51,11 +53,65 @@ export function Planer() {
     return generateTripDays(startDate, endDate);
   });
 
-  const [activeSection, setActiveSection] = useState<string>('d1'); 
+  // Generowanie planu przez Asystenta AI (parametry z PlanTripModal w URL)
+  const wantsAiPlan = isNew && searchParams.get('ai') === '1';
+  const aiPace = (['relaxed', 'balanced', 'intensive'] as const).find(p => p === searchParams.get('pace')) ?? 'balanced';
+  const aiInterests = (searchParams.get('interests') ?? '').split(',').filter(Boolean);
+  const aiCompanion = searchParams.get('companion') ?? undefined;
+  const aiNotes = searchParams.get('notes') ?? undefined;
+  const urlBudget = parseFloat(searchParams.get('budget') ?? '');
+  const initialBudget = trip?.budget ?? (isNew && urlBudget > 0 ? urlBudget : DEFAULT_TOTAL_BUDGET);
+  const aiKey = wantsAiPlan ? location.search : '';
+  const [isGenerating, setIsGenerating] = useState(wantsAiPlan);
+  const [generationError, setGenerationError] = useState('');
+
+  useEffect(() => {
+    if (!aiKey || !startDate || !endDate) {
+      setIsGenerating(false);
+      return;
+    }
+    let cancelled = false;
+    setIsGenerating(true);
+    setGenerationError('');
+    generateTripPlan({
+      destination: tripDestination,
+      startDate,
+      endDate,
+      budget: initialBudget,
+      currency,
+      pace: aiPace,
+      interests: aiInterests,
+      companion: aiCompanion,
+      notes: aiNotes,
+      lat: hasDestCoords ? destLat : undefined,
+      lng: hasDestCoords ? destLng : undefined,
+    })
+      .then((days) => {
+        if (cancelled) return;
+        setTripDays(days);
+        setActiveSection('d1');
+        const first = days[0]?.items[0];
+        if (first) {
+          setMapCenter([first.lat, first.lng]);
+          setMapZoom(13);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setGenerationError(err instanceof Error ? err.message : 'Nie udało się wygenerować planu.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsGenerating(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiKey]);
+
+  const [activeSection, setActiveSection] = useState<string>('d1');
   const [mapCenter, setMapCenter] = useState<[number, number]>(hasDestCoords ? [destLat, destLng] : DEFAULT_CENTER);
   const [mapZoom, setMapZoom] = useState(4);
   const [isMapVisible, setIsMapVisible] = useState(true);
-  
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeResults, setPlaceResults] = useState<GeocodedPlace[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -65,7 +121,7 @@ export function Planer() {
 
   const [clickedMapPoint, setClickedMapPoint] = useState<ClickedPoint | null>(null);
 
-  const [totalBudget, setTotalBudget] = useState<number>(trip?.budget ?? DEFAULT_TOTAL_BUDGET);
+  const [totalBudget, setTotalBudget] = useState<number>(initialBudget);
   const [customBudgetItems, setCustomBudgetItems] = useState<BudgetItem[]>(DEFAULT_BUDGET_ITEMS);
 
   const [packingItems, setPackingItems] = useState<PackingItem[]>(DEFAULT_PACKING_ITEMS);
@@ -279,6 +335,18 @@ export function Planer() {
     }));
   };
 
+  const applyReorderedItems = (dayId: string, items: ScheduleItem[]) => {
+    setTripDays(prevDays => prevDays.map(day => day.id === dayId ? { ...day, items } : day));
+  };
+
+  const addItemsToDay = (dayId: string, items: ScheduleItem[]) => {
+    setTripDays(prevDays => prevDays.map(day => {
+      if (day.id !== dayId) return day;
+      const known = new Set(day.items.map(i => i.id));
+      return { ...day, items: [...day.items, ...items.filter(i => !known.has(i.id))] };
+    }));
+  };
+
   const renameDay = (dayId: string, title: string) => {
     setTripDays(prevDays => prevDays.map(day => day.id === dayId ? { ...day, customTitle: title } : day));
   };
@@ -294,7 +362,7 @@ export function Planer() {
 
   const togglePackingItem = (id: string) => setPackingItems(items => items.map(item => item.id === id ? { ...item, packed: !item.packed } : item));
   const deletePackingItem = (id: string) => setPackingItems(items => items.filter(item => item.id !== id));
-  const addPackingItem = (text: string) => setPackingItems(items => [...items, { id: String(Date.now()), text, packed: false }]);
+  const addPackingItem = (text: string) => setPackingItems(items => [...items, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, text, packed: false }]);
 
   // ZBIERAMY WSZYSTKIE PINEZKI ZE WSZYSTKICH DNI DO WYŚWIETLENIA NA MAPIE
   const allMapPlaces: Place[] = tripDays.flatMap(day =>
@@ -313,6 +381,28 @@ export function Planer() {
 
   const currentDay = tripDays.find(d => d.id === activeSection);
 
+  // Linia trasy aktywnego dnia (kolejność punktów = kolejność w harmonogramie)
+  const activeRoute: MapRoute | null = isScheduleMode && currentDay && currentDay.items.length > 1
+    ? { points: currentDay.items.map((i): [number, number] => [i.lat, i.lng]), color: currentDay.color || DEFAULT_PIN_COLOR }
+    : null;
+
+  // Kontekst podróży przekazywany do Asystenta (z bieżącym stanem dni)
+  const assistantTrip: Trip = {
+    id: trip?.id ?? 'nowy',
+    title: tripTitle,
+    location: tripDestination,
+    startDate: startDate ?? '',
+    endDate: endDate ?? '',
+    status: trip?.status ?? 'upcoming',
+    imageUrl: trip?.imageUrl ?? '',
+    lat: hasDestCoords ? destLat : mapCenter[0],
+    lng: hasDestCoords ? destLng : mapCenter[1],
+    zoom: destZoom,
+    budget: totalBudget,
+    currency,
+    days: tripDays,
+  };
+
   // Funkcja centrowania mapy na wybranej atrakcji po kliknięciu
   const handleFocusOnMap = (lat: number, lng: number) => {
     if (!isNaN(lat) && !isNaN(lng)) {
@@ -329,6 +419,17 @@ export function Planer() {
         backTo="/dashboard"
         title={tripTitle}
         subtitle={<span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-emerald-600" /> {tripDestination}</span>}
+        actions={
+          <Button
+            variant={isAssistantOpen ? 'primary' : 'secondary'}
+            size="sm"
+            aria-pressed={isAssistantOpen}
+            onClick={() => setIsAssistantOpen(open => !open)}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:block">Asystent AI</span>
+          </Button>
+        }
       />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
@@ -341,7 +442,26 @@ export function Planer() {
             </div>
           )}
         </DragOverlay>
-        <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 flex overflow-clip relative">
+
+          {isGenerating && (
+            <div
+              role="status"
+              aria-live="polite"
+              className={`absolute inset-0 ${LAYER.modal} bg-[#FAF9F6]/90 backdrop-blur-sm flex items-center justify-center px-4`}
+            >
+              <div className="bg-white rounded-xl border border-stone-200 shadow-md p-6 max-w-sm w-full text-center">
+                <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center">
+                  <Sparkles className="w-6 h-6 text-emerald-600 animate-pulse" />
+                </div>
+                <h2 className="text-lg font-semibold tracking-tight text-zinc-900">Asystent AI układa Twój plan</h2>
+                <p className="text-sm text-stone-500 mt-1">
+                  Dobieram atrakcje w {tripDestination.split(',')[0]} i układam je w sensowną trasę…
+                </p>
+                <Loader2 className="w-5 h-5 text-stone-500 animate-spin mx-auto mt-4" />
+              </div>
+            </div>
+          )}
 
           <PlanerSidebar
             dropTargetDayId={dropTargetDayId}
@@ -354,6 +474,12 @@ export function Planer() {
 
           <div className="flex-1 bg-[#FAF9F6] flex flex-col h-full min-w-[400px] relative z-20 overflow-x-hidden">
             <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden relative">
+              {generationError && (
+                <div role="alert" className="m-3 mb-0 p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg shrink-0">
+                  {generationError} Możesz zaplanować podróż ręcznie.
+                </div>
+              )}
+
               {isScheduleMode && (
                 <div className="p-3 border-b border-stone-200 bg-white shrink-0 relative">
                   <Input
@@ -414,6 +540,8 @@ export function Planer() {
                         scheduleItems={tripDays.flatMap(day => day.items)}
                         packingItemsCount={packingItems.length}
                         packedItemsCount={packingItems.filter(i => i.packed).length}
+                        days={tripDays}
+                        onSelectDay={setActiveSection}
                       />
                     ) : activeSection === 'flights-hotel' ? (
                       <FlightsAndHotelView customItems={customBudgetItems} setCustomItems={setCustomBudgetItems} currency={currency} />
@@ -451,8 +579,9 @@ export function Planer() {
             {isScheduleMode && isMapVisible && (
               <motion.div initial={{ width: 0, minWidth: 0, opacity: 0 }} animate={{ width: '45%', minWidth: '380px', opacity: 1 }} exit={{ width: 0, minWidth: 0, opacity: 0 }} transition={{ duration: 0.3, ease: "easeInOut" }} className="border-l border-stone-200 relative bg-stone-200 shrink-0 z-10 overflow-hidden h-full flex flex-col">
                 <div className="w-full h-full min-w-[380px]">
-                  <TravelMap 
-                    places={allMapPlaces} 
+                  <TravelMap
+                    route={activeRoute}
+                    places={allMapPlaces}
                     visitedPlaces={[]} 
                     onTogglePlace={() => {}} 
                     className="w-full h-full" 
@@ -468,6 +597,15 @@ export function Planer() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          <AssistantDrawer
+            isOpen={isAssistantOpen}
+            onClose={() => setIsAssistantOpen(false)}
+            trip={assistantTrip}
+            activeDay={currentDay}
+            onApplyReorder={applyReorderedItems}
+            onAddItems={addItemsToDay}
+          />
         </div>
       </DndContext>
     </div>

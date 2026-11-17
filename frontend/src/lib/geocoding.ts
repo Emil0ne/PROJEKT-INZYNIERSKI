@@ -9,8 +9,8 @@ import type { GeocodedPlace, PlaceKind } from '../types/place';
 
 // ---------- helpery współdzielone ----------
 
-const fetchJson = async <T>(url: string): Promise<T> => {
-  const res = await fetch(url);
+const fetchJson = async <T>(url: string, signal?: AbortSignal): Promise<T> => {
+  const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`Geocoding HTTP ${res.status}`);
   return res.json() as Promise<T>;
 };
@@ -92,6 +92,8 @@ interface NominatimSearchResult {
   lat: string;
   lon: string;
   addresstype?: string;
+  class?: string;
+  type?: string;
 }
 
 interface NominatimReverseResult {
@@ -136,12 +138,31 @@ export async function searchPlaces(
   return (data || []).map(fromNominatim);
 }
 
-/** Wyszukuje lotniska (Nominatim). */
-export async function searchAirports(query: string, limit = 5): Promise<GeocodedPlace[]> {
-  const data = await fetchJson<NominatimSearchResult[] | null>(
-    `${NOMINATIM}/search?format=json&q=${encodeURIComponent(query + ' lotnisko airport')}&limit=${limit}&accept-language=pl`,
-  );
-  return (data || []).map(fromNominatim);
+const isAirport = (r: NominatimSearchResult) => r.class === 'aeroway' && (r.type === 'aerodrome' || r.type === 'airport');
+
+/**
+ * Wyszukuje lotniska wyłącznie przez zewnętrzne API (Nominatim) – gotowe do przepięcia na endpoint backendu.
+ * Dwa równoległe zapytania (z dopiskiem „airport” i „lotnisko”), żeby kody IATA oraz nazwy miast
+ * zwracały lotniska; wyniki typu aeroway=aerodrome mają pierwszeństwo. Anulowanie przez `signal` rzuca AbortError.
+ */
+export async function searchAirports(query: string, limit = 5, signal?: AbortSignal): Promise<GeocodedPlace[]> {
+  const q = query.trim();
+  const url = (term: string) =>
+    `${NOMINATIM}/search?format=json&q=${encodeURIComponent(term)}&limit=${limit}&accept-language=pl`;
+
+  const settled = await Promise.allSettled([
+    fetchJson<NominatimSearchResult[] | null>(url(`${q} airport`), signal),
+    fetchJson<NominatimSearchResult[] | null>(url(`${q} lotnisko`), signal),
+  ]);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+  const fulfilled = settled.filter((s): s is PromiseFulfilledResult<NominatimSearchResult[] | null> => s.status === 'fulfilled');
+  if (fulfilled.length === 0) throw new Error('Nie udało się wyszukać lotnisk.');
+
+  const raw = fulfilled.flatMap(s => s.value ?? []);
+  const uniqueRaw = raw.filter((r, idx) => idx === raw.findIndex(t => t.place_id === r.place_id));
+  const airports = uniqueRaw.filter(isAirport);
+  return dedupeByDisplayName((airports.length > 0 ? airports : uniqueRaw).map(fromNominatim)).slice(0, limit);
 }
 
 /** Zwraca pierwsze trafienie dla podanego adresu/nazwy albo null. */

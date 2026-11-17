@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Wallet, MapPin, Clock, Trash2, Edit3, Save, X, GripVertical, Palette, ArrowRightLeft } from 'lucide-react';
+import { Wallet, MapPin, Clock, Trash2, Edit3, Save, X, GripVertical, Palette, ArrowRightLeft, Route } from 'lucide-react';
+import { formatKm, routeLengthKm } from '../../lib/geo';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button, EmptyState, IconButton } from '../ui';
@@ -195,7 +196,18 @@ export function DayScheduleView({ day, currency, otherDays, onMoveItem, onFocusO
                 <IconButton label="Edytuj nazwę dnia" onClick={() => { setDayCustomTitleInput(day.customTitle || `Dzień ${day.dayNumber}`); setIsEditingDayTitle(true); }} className="opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100"><Edit3 className="w-4 h-4" /></IconButton>
               </div>
             )}
-            <p className="text-stone-500 text-sm mt-0.5 tabular-nums">{day.date}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+              <p className="text-stone-500 text-sm tabular-nums">{day.date}</p>
+              {day.items.length > 1 && (
+                <span
+                  title="Łączna długość trasy w linii prostej między kolejnymi punktami"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-stone-200 text-xs font-medium text-stone-600 tabular-nums"
+                >
+                  <Route className="w-3 h-3 text-stone-400" />
+                  Trasa: {formatKm(routeLengthKm(day.items))}
+                </span>
+              )}
+            </div>
           </div>
     
           {/* WYBÓR KOLORU PINEZKI */}

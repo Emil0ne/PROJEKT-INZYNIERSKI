@@ -12,10 +12,12 @@ interface AppHeaderProps {
   /** 'page' – sticky, wyśrodkowany kontener (Dashboard); 'workspace' – pełna szerokość (Planer). */
   layout?: 'page' | 'workspace';
   userName?: string;
+  /** Dodatkowe akcje wyświetlane po lewej od profilu użytkownika. */
+  actions?: ReactNode;
 }
 
 /** Wspólny górny pasek zalogowanego użytkownika. */
-export function AppHeader({ backTo, title, subtitle, layout = 'page', userName = 'Emil' }: AppHeaderProps) {
+export function AppHeader({ backTo, title, subtitle, layout = 'page', userName = 'Emil', actions }: AppHeaderProps) {
   const navigate = useNavigate();
   const isPage = layout === 'page';
 
@@ -52,6 +54,7 @@ export function AppHeader({ backTo, title, subtitle, layout = 'page', userName =
         </div>
 
         <div className="flex items-center gap-3">
+          {actions}
           <div className="hidden sm:flex items-center gap-2.5 mr-1 border-r border-stone-200 pr-4">
             <div className="w-8 h-8 bg-stone-100 border border-stone-200 rounded-full flex items-center justify-center text-zinc-700 text-sm font-semibold">{userName.charAt(0)}</div>
             <span className="text-sm text-stone-600">Cześć, {userName}</span>

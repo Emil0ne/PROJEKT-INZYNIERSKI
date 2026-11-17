@@ -1,9 +1,9 @@
-import { MapPin, Wallet, CheckCircle2, Plane, Receipt, Tag } from 'lucide-react';
-import type { BudgetItem } from '../types/budget';
-import type { ScheduleItem } from '../types/trip';
+import { CalendarDays, Wallet, MapPin, Luggage, ChevronRight, Plane, Hotel, Car, Shield, Bus, Tag } from 'lucide-react';
+import type { BudgetCategory, BudgetItem } from '../types/budget';
+import type { ScheduleItem, TripDay } from '../types/trip';
 import { calculateBudgetSummary } from '../lib/budget';
-import { DEFAULT_CURRENCY } from '../lib/constants';
-import { Card, EmptyState, ProgressBar } from '../components/ui';
+import { DEFAULT_CURRENCY, DEFAULT_PIN_COLOR } from '../lib/constants';
+import { EmptyState, ProgressBar } from '../components/ui';
 
 interface OverviewViewProps {
   tripTitle: string;
@@ -17,14 +17,38 @@ interface OverviewViewProps {
   scheduleItems: ScheduleItem[];
   packingItemsCount?: number;
   packedItemsCount?: number;
+  /** Dni wyjazdu do szybkiego podglądu harmonogramu. */
+  days?: TripDay[];
+  /** Przejście do widoku wybranego dnia (id dnia, np. 'd1'). */
+  onSelectDay?: (dayId: string) => void;
 }
 
-const StatLabel = ({ children }: { children: React.ReactNode }) => (
-  <div className="text-xs font-semibold uppercase tracking-wider text-stone-400">{children}</div>
+const CATEGORY_ICONS: Partial<Record<BudgetCategory, React.ReactNode>> = {
+  Loty: <Plane className="w-3.5 h-3.5" />,
+  Hotel: <Hotel className="w-3.5 h-3.5" />,
+  'Wynajem auta': <Car className="w-3.5 h-3.5" />,
+  Ubezpieczenie: <Shield className="w-3.5 h-3.5" />,
+  Transport: <Bus className="w-3.5 h-3.5" />,
+};
+
+const SectionLabel = ({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) => (
+  <div className="flex items-center justify-between mb-2">
+    <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500">{children}</h3>
+    {aside && <span className="text-xs text-stone-400 tabular-nums">{aside}</span>}
+  </div>
+);
+
+const Kpi = ({ icon, label, children, footer }: { icon: React.ReactNode; label: string; children: React.ReactNode; footer?: React.ReactNode }) => (
+  <div className="px-4 py-3 min-w-0">
+    <div className="flex items-center gap-1.5 text-xs font-medium text-stone-500 [&>svg]:w-3.5 [&>svg]:h-3.5">
+      {icon} {label}
+    </div>
+    <div className="mt-1 text-lg font-semibold tracking-tight text-zinc-900 tabular-nums truncate">{children}</div>
+    {footer && <div className="mt-1.5">{footer}</div>}
+  </div>
 );
 
 export function OverviewView({
-  tripTitle,
   destination,
   startDate,
   endDate,
@@ -34,125 +58,112 @@ export function OverviewView({
   customItems = [],
   scheduleItems = [],
   packingItemsCount = 2,
-  packedItemsCount = 1
+  packedItemsCount = 1,
+  days = [],
+  onSelectDay,
 }: OverviewViewProps) {
-
-  // Obliczenia finansowe
   const { totalSpent, remaining: remainingBudget, percentage } = calculateBudgetSummary(totalBudget, customItems, scheduleItems);
+  const packedPercent = packingItemsCount > 0 ? Math.round((packedItemsCount / packingItemsCount) * 100) : 0;
+  const dayWord = totalDays === 1 ? 'dzień' : 'dni';
 
   return (
-    <div className="max-w-4xl mx-auto p-5 space-y-5">
-
-      <Card padding="lg" className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">{tripTitle}</h2>
-          <p className="text-stone-500 flex items-center gap-2 text-sm font-medium">
-            <MapPin className="w-4 h-4 text-stone-600" /> {destination}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-6 bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
-          <div>
-            <StatLabel>Termin wyjazdu</StatLabel>
-            <div className="text-sm font-medium text-zinc-900 mt-0.5">{startDate || 'Brak'} – {endDate || 'Brak'}</div>
-          </div>
-          <div className="w-px h-8 bg-stone-200"></div>
-          <div>
-            <StatLabel>Czas trwania</StatLabel>
-            <div className="text-sm font-medium text-zinc-900 mt-0.5">{totalDays} {totalDays === 1 ? 'dzień' : totalDays < 5 ? 'dni' : 'dni'}</div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Szybkie podsumowanie budżetu */}
-      <Card padding="lg" className="space-y-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-stone-600" /> Podsumowanie Finansowe
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
-            <StatLabel>Budżet całkowity</StatLabel>
-            <div className="text-xl font-semibold text-zinc-900 mt-1">{totalBudget} {currency}</div>
-          </div>
-          <div className="bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
-            <StatLabel>Wydano łącznie</StatLabel>
-            <div className="text-xl font-semibold text-zinc-900 mt-1">{totalSpent} {currency}</div>
-          </div>
-          <div className="bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
-            <StatLabel>Pozostało</StatLabel>
-            <div className={`text-xl font-semibold mt-1 ${remainingBudget < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
-              {remainingBudget} {currency}
-            </div>
-          </div>
-        </div>
-
-        {/* Pasek postępu wydatków */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs font-medium text-stone-600">
-            <span>Wykorzystanie budżetu ({percentage}%)</span>
-            <span>Limit: {totalBudget} {currency}</span>
-          </div>
-          <ProgressBar value={percentage} />
-        </div>
-      </Card>
-
-      {/* Koszty stałe i Atrakcje w harmonogramie */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="space-y-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-            <Plane className="w-4 h-4 text-stone-600" /> Rezerwacje i koszty stałe ({customItems.length})
-          </h4>
-          <div className="divide-y divide-stone-200 border-y border-stone-200 max-h-48 overflow-y-auto">
-            {customItems.length > 0 ? (
-              customItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between px-1 py-2.5 text-sm">
-                  <span className="text-stone-700 truncate pr-2">{item.title}</span>
-                  <span className="font-medium text-zinc-900 shrink-0 tabular-nums">{item.cost} {currency}</span>
-                </div>
-              ))
-            ) : (
-              <EmptyState compact title="Brak dodanych kosztów stałych." />
-            )}
-          </div>
-        </Card>
-
-        <Card className="space-y-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-stone-500" /> Atrakcje w harmonogramie ({scheduleItems.length})
-          </h4>
-          <div className="divide-y divide-stone-200 border-y border-stone-200 max-h-48 overflow-y-auto">
-            {scheduleItems.length > 0 ? (
-              scheduleItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between px-1 py-2.5 text-sm">
-                  <div className="flex items-center gap-2 truncate pr-2">
-                    <Tag className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                    <span className="text-stone-700 truncate">{item.title}</span>
-                  </div>
-                  <span className="font-medium text-zinc-900 shrink-0 tabular-nums">
-                    {item.cost && item.cost > 0 ? `${item.cost} ${currency}` : 'Bezpłatnie'}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <EmptyState compact title="Brak atrakcji w planie dni." description="Wyszukaj i dodaj miejsca w harmonogramie." />
-            )}
-          </div>
-        </Card>
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight text-zinc-900">Przegląd wyjazdu</h2>
+        <p className="text-sm text-stone-500 flex items-center gap-1.5 mt-0.5"><MapPin className="w-3.5 h-3.5" /> {destination}</p>
       </div>
 
-      {/* Status przygotowań */}
-      <Card className="space-y-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-stone-600" /> Status przygotowań
-        </h3>
-        <div className="max-w-md">
-          <div className="flex items-center justify-between py-3 border-y border-stone-200 text-sm">
-            <span className="font-medium text-stone-700">Spakowane rzeczy w walizce</span>
-            <span className="font-medium text-zinc-900">{packedItemsCount} / {packingItemsCount} pozycji</span>
-          </div>
+      {/* KPI bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-stone-200 border-y border-stone-200 [&>*:nth-child(n+3)]:max-lg:border-t [&>*:nth-child(n+3)]:max-lg:border-stone-200">
+        <Kpi icon={<CalendarDays />} label="Termin" footer={<span className="text-xs text-stone-500">{totalDays} {dayWord}</span>}>
+          <span className="text-base">{startDate || 'Brak'} – {endDate || 'Brak'}</span>
+        </Kpi>
+        <Kpi
+          icon={<Wallet />}
+          label="Budżet pozostały"
+          footer={<ProgressBar value={percentage} />}
+        >
+          <span className={remainingBudget < 0 ? 'text-red-600' : ''}>{remainingBudget} {currency}</span>
+        </Kpi>
+        <Kpi icon={<MapPin />} label="Zaplanowane punkty" footer={<span className="text-xs text-stone-500">w {days.filter(d => d.items.length > 0).length || 0} z {totalDays} dni</span>}>
+          {scheduleItems.length}
+        </Kpi>
+        <Kpi icon={<Luggage />} label="Spakowane rzeczy" footer={<ProgressBar value={packedPercent} />}>
+          {packedItemsCount} / {packingItemsCount}
+        </Kpi>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-x-8 gap-y-6">
+        {/* Harmonogram dzień po dniu */}
+        <section className="lg:col-span-3">
+          <SectionLabel aside={`${days.length} dni`}>Harmonogram</SectionLabel>
+          {days.length > 0 ? (
+            <ul className="divide-y divide-stone-200 border-y border-stone-200">
+              {days.map(day => (
+                <li key={day.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectDay?.(day.id)}
+                    className="w-full flex items-start gap-3 px-1 py-3 text-left hover:bg-stone-100/60 transition-colors cursor-pointer group"
+                  >
+                    <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: day.color || DEFAULT_PIN_COLOR }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium text-zinc-900 truncate">{day.customTitle || `Dzień ${day.dayNumber}`}</span>
+                        <span className="text-xs text-stone-400 tabular-nums shrink-0">{day.date}</span>
+                      </span>
+                      <span className="block text-xs text-stone-500 mt-0.5 truncate">
+                        {day.items.length > 0
+                          ? day.items.slice(0, 3).map(i => i.title).join(' · ') + (day.items.length > 3 ? ` · +${day.items.length - 3}` : '')
+                          : 'Brak zaplanowanych punktów'}
+                      </span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-stone-300 group-hover:text-stone-500 mt-0.5 shrink-0" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState compact title="Brak dni w harmonogramie." description="Ustaw daty wyjazdu, aby zaplanować dni." />
+          )}
+        </section>
+
+        {/* Rezerwacje + przygotowania */}
+        <div className="lg:col-span-2 space-y-6">
+          <section>
+            <SectionLabel aside={`${customItems.length}`}>Rezerwacje i koszty stałe</SectionLabel>
+            {customItems.length > 0 ? (
+              <ul className="divide-y divide-stone-200 border-y border-stone-200 max-h-64 overflow-y-auto">
+                {customItems.map(item => (
+                  <li key={item.id} className="flex items-center justify-between gap-3 px-1 py-2.5 text-sm">
+                    <span className="flex items-center gap-2 min-w-0 text-stone-700">
+                      <span className="text-stone-400 shrink-0">{CATEGORY_ICONS[item.category] ?? <Tag className="w-3.5 h-3.5" />}</span>
+                      <span className="truncate">{item.title}</span>
+                    </span>
+                    <span className="font-medium text-zinc-900 tabular-nums shrink-0">{item.cost} {currency}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState compact title="Brak rezerwacji." description="Dodaj je w zakładce Loty i nocleg." />
+            )}
+          </section>
+
+          <section>
+            <SectionLabel>Status przygotowań</SectionLabel>
+            <dl className="divide-y divide-stone-200 border-y border-stone-200 text-sm">
+              <div className="flex items-center justify-between px-1 py-2.5">
+                <dt className="text-stone-600">Spakowane rzeczy</dt>
+                <dd className="font-medium text-zinc-900 tabular-nums">{packedItemsCount} / {packingItemsCount} ({packedPercent}%)</dd>
+              </div>
+              <div className="flex items-center justify-between px-1 py-2.5">
+                <dt className="text-stone-600">Wydano z budżetu</dt>
+                <dd className="font-medium text-zinc-900 tabular-nums">{totalSpent} / {totalBudget} {currency}</dd>
+              </div>
+            </dl>
+          </section>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

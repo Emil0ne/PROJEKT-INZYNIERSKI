@@ -1,10 +1,10 @@
-import { MapContainer, TileLayer, Marker, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Check, Plus, Loader2, MapPin } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
-import { DEFAULT_CENTER } from '../lib/constants';
+import { DEFAULT_CENTER, DEFAULT_PIN_COLOR } from '../lib/constants';
 import { Button } from './ui';
 import type { ClickedPoint, Place } from '../types/place';
 
@@ -42,7 +42,16 @@ const createPlannerPin = (colorValue: string) => {
   });
 };
 
+/** Linia trasy łącząca punkty dnia w kolejności odwiedzania. */
+export interface MapRoute {
+  /** Punkty [lat, lng] w kolejności przejścia. */
+  points: [number, number][];
+  /** Kolor HEX linii (np. kolor aktywnego dnia). */
+  color: string;
+}
+
 interface TravelMapProps {
+  route?: MapRoute | null;
   places: Place[];
   visitedPlaces: Place[];
   onTogglePlace: (place: Place) => void;
@@ -80,8 +89,9 @@ function MapEventsHandler({ onMapClick }: { onMapClick?: (lat: number, lng: numb
   return null;
 }
 
-export function TravelMap({ 
-  places, 
+export function TravelMap({
+  route,
+  places,
   visitedPlaces, 
   onTogglePlace, 
   className = "w-full h-full", 
@@ -115,6 +125,21 @@ export function TravelMap({
         attribution='&copy; Google Maps'
       />
       
+      {route && route.points.length > 1 && (
+        <Polyline
+          positions={route.points}
+          pathOptions={{
+            color: route.color.startsWith('#') ? route.color : DEFAULT_PIN_COLOR,
+            weight: 4,
+            opacity: 0.75,
+            dashArray: '8 8',
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+          interactive={false}
+        />
+      )}
+
       {displayedPlaces.map(place => {
         const isVisited = visitedPlaces.some(p => p.id === place.id);
         const currentPin = isPlannerMode 
