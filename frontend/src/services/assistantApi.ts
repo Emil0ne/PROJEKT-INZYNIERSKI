@@ -1,13 +1,13 @@
 /**
  * Warstwa serwisu Asystenta AI.
  *
- * Sygnatury i typy są kontraktem pod przyszły backend (.NET 8 + OpenAI Structured Outputs).
- * Na razie obie funkcje to „inteligentny mock”: realistyczne opóźnienie + deterministyczne
- * algorytmy na prawdziwych współrzędnych. Przy podpinaniu backendu wystarczy podmienić
- * ciała funkcji na `fetch` – komponenty nie wymagają zmian.
+ * Sygnatury i typy są kontraktem z backendem (.NET 8 + OpenAI Structured Outputs).
+ * Gdy ustawiono `VITE_API_URL`, funkcje wołają backend; przy błędzie (lub bez zmiennej)
+ * działa „inteligentny mock”: realistyczne opóźnienie + deterministyczne algorytmy na
+ * prawdziwych współrzędnych. Aktualny tryb jest widoczny przez `useAiMode()`.
  */
 import { DAY_COLORS, DEFAULT_TOTAL_BUDGET } from '../lib/constants';
-import { generateTripDays } from '../lib/dates';
+import { countTripDays, generateTripDays } from '../lib/dates';
 import { centroid, distanceKm, routeLengthKm, sortByNearestNeighbor, type LatLng } from '../lib/geo';
 import { geocodeAddress } from '../lib/geocoding';
 import {
@@ -18,6 +18,7 @@ import {
   type InterestId,
 } from '../mocks/attractions';
 import type { ScheduleItem, Trip, TripDay } from '../types/trip';
+import { isApiEnabled, postJson, setAiMode } from './apiClient';
 
 export type TripPace = 'relaxed' | 'balanced' | 'intensive';
 
@@ -158,8 +159,8 @@ const shortCityName = (destination: string) => destination.split(',')[0].trim() 
 
 // --- generateTripPlan ---
 
-/** Generuje harmonogram dni z atrakcjami i współrzędnymi dla podanego celu. */
-export async function generateTripPlan(params: GenerateTripPlanParams): Promise<TripDay[]> {
+/** Mock: generuje harmonogram dni z atrakcjami i współrzędnymi dla podanego celu. */
+async function generateTripPlanMock(params: GenerateTripPlanParams): Promise<TripDay[]> {
   const latencyPromise = simulateLatency();
 
   let center: LatLng | null =
@@ -365,8 +366,8 @@ const assessDay = (trip: Trip, day: TripDay): AskTripAssistantResult => {
   };
 };
 
-/** Odpowiada na polecenie użytkownika w kontekście aktywnego dnia: optymalizuje trasę lub proponuje nowe punkty. */
-export async function askTripAssistant(params: AskTripAssistantParams): Promise<AskTripAssistantResult> {
+/** Mock: odpowiada na polecenie w kontekście aktywnego dnia (optymalizacja trasy / propozycje). */
+async function askTripAssistantMock(params: AskTripAssistantParams): Promise<AskTripAssistantResult> {
   const { trip, activeDayId, prompt } = params;
   await simulateLatency();
 
@@ -376,4 +377,122 @@ export async function askTripAssistant(params: AskTripAssistantParams): Promise<
   if (OPTIMIZE_RE.test(prompt)) return optimizeDay(trip, day);
   if (ASSESS_RE.test(prompt)) return assessDay(trip, day);
   return suggestNearby(trip, day, prompt);
+}
+
+// --- Integracja z backendem ---
+
+interface BackendActivity {
+  id?: string;
+  time?: string;
+  title?: string;
+  estimatedCost?: number;
+  latitude?: number;
+  longitude?: number;
+  type?: string;
+}
+
+interface BackendDay {
+  dayNumber?: number;
+  theme?: string;
+  activities?: BackendActivity[];
+}
+
+interface BackendPlan {
+  days?: BackendDay[];
+}
+
+const normalizeTime = (raw: string | undefined): string =>
+  raw && /^\d{1,2}:\d{2}/.test(raw) ? formatTime(parseTime(raw)) : '12:00';
+
+/** Mapuje odpowiedź `TripPlanResponseDto` na `TripDay[]` (id, kolory i daty uzupełnia frontend). */
+const mapBackendPlan = (plan: BackendPlan, params: GenerateTripPlanParams): TripDay[] => {
+  const baseDays = generateTripDays(params.startDate, params.endDate);
+  if (baseDays.length === 0) throw new Error('Nieprawidłowy zakres dat podróży.');
+  const backendDays = Array.isArray(plan.days) ? plan.days : [];
+
+  const days = baseDays.map((base, i) => {
+    const src = backendDays.find((d) => d.dayNumber === base.dayNumber) ?? backendDays[i];
+    const items: ScheduleItem[] = (src?.activities ?? [])
+      .filter((a) => Number.isFinite(a.latitude) && Number.isFinite(a.longitude) && !!a.title)
+      .map((a) => ({
+        id: a.id || newItemId(),
+        title: String(a.title),
+        time: normalizeTime(a.time),
+        type: a.type === 'transport' ? ('transport' as const) : ('activity' as const),
+        lat: Number(a.latitude),
+        lng: Number(a.longitude),
+        cost: Number.isFinite(a.estimatedCost) ? Math.max(0, Math.round(Number(a.estimatedCost))) : 0,
+      }));
+    return { ...base, customTitle: src?.theme ?? '', items };
+  });
+
+  if (days.every((d) => d.items.length === 0)) throw new Error('Backend zwrócił pusty plan.');
+  return days;
+};
+
+/** Generuje plan podróży: z backendu (`POST /api/trips/generate`), a przy błędzie – z mocka. */
+export async function generateTripPlan(params: GenerateTripPlanParams): Promise<TripDay[]> {
+  if (!isApiEnabled) {
+    setAiMode('demo');
+    return generateTripPlanMock(params);
+  }
+  try {
+    const budget = params.budget != null && params.budget > 0 ? params.budget : DEFAULT_TOTAL_BUDGET;
+    const plan = await postJson<BackendPlan>(
+      '/api/trips/generate',
+      {
+        ...params,
+        budget,
+        // Pola wymagane przez starszą wersję DTO backendu – nieszkodliwe dla nowszej.
+        durationDays: countTripDays(params.startDate, params.endDate),
+        transportMode: 'dowolny',
+        preferences: [...params.interests, params.companion, params.notes].filter(Boolean),
+      },
+      60_000,
+    );
+    const days = mapBackendPlan(plan, params);
+    setAiMode('backend');
+    return days;
+  } catch (err) {
+    console.warn('[assistantApi] Backend generate nie powiódł się – używam mocka:', err);
+    setAiMode('fallback');
+    return generateTripPlanMock(params);
+  }
+}
+
+const sanitizeItems = (raw: unknown): ScheduleItem[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  return (raw as Partial<ScheduleItem>[])
+    .filter((i) => !!i && Number.isFinite(i.lat) && Number.isFinite(i.lng) && typeof i.title === 'string')
+    .map((i) => ({
+      id: i.id || newItemId(),
+      title: String(i.title),
+      time: normalizeTime(i.time),
+      type: i.type === 'transport' ? ('transport' as const) : ('activity' as const),
+      lat: Number(i.lat),
+      lng: Number(i.lng),
+      cost: Number.isFinite(i.cost) ? Math.max(0, Number(i.cost)) : 0,
+    }));
+};
+
+/** Odpowiada na polecenie w kontekście aktywnego dnia: z backendu (`POST /api/assistant/ask`), a przy błędzie – z mocka. */
+export async function askTripAssistant(params: AskTripAssistantParams): Promise<AskTripAssistantResult> {
+  if (!isApiEnabled) {
+    setAiMode('demo');
+    return askTripAssistantMock(params);
+  }
+  try {
+    const res = await postJson<Partial<AskTripAssistantResult>>('/api/assistant/ask', params, 30_000);
+    if (typeof res.message !== 'string' || !res.message) throw new Error('Nieprawidłowa odpowiedź asystenta.');
+    setAiMode('backend');
+    return {
+      message: res.message,
+      suggestedItems: sanitizeItems(res.suggestedItems),
+      reorderedDayItems: sanitizeItems(res.reorderedDayItems),
+    };
+  } catch (err) {
+    console.warn('[assistantApi] Backend assistant nie powiódł się – używam mocka:', err);
+    setAiMode('fallback');
+    return askTripAssistantMock(params);
+  }
 }

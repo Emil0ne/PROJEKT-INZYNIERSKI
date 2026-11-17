@@ -4,7 +4,15 @@ import { Button, IconButton, cx } from '../ui';
 import { LAYER } from '../../lib/layers';
 import { formatKm, routeLengthKm } from '../../lib/geo';
 import { askTripAssistant } from '../../services/assistantApi';
+import { useAiMode, type AiMode } from '../../services/apiClient';
 import type { ScheduleItem, Trip, TripDay } from '../../types/trip';
+
+const AI_MODE_BADGE: Record<AiMode, { label: string; hint: string; className: string }> = {
+  demo: { label: 'Tryb demo', hint: 'Backend wyłączony – odpowiedzi z lokalnego mocka.', className: 'bg-stone-100 text-stone-600 border-stone-200' },
+  pending: { label: 'AI: backend', hint: 'Backend włączony – czeka na pierwsze zapytanie.', className: 'bg-sky-50 text-sky-700 border-sky-200' },
+  backend: { label: 'AI: backend ✓', hint: 'Ostatnia odpowiedź pochodzi z backendu.', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  fallback: { label: 'Backend niedostępny – demo', hint: 'Backend nie odpowiedział, użyto lokalnego mocka.', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+};
 
 const QUICK_ACTIONS = [
   'Zoptymalizuj trasę tego dnia',
@@ -56,6 +64,7 @@ export function AssistantDrawer({ isOpen, onClose, trip, activeDay, onApplyReord
       text: 'Cześć! Jestem Asystentem Logistyki. Pomogę uporządkować trasę wybranego dnia albo znaleźć miejsca w okolicy.',
     },
   ]);
+  const aiMode = useAiMode();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const nextId = useRef(1);
@@ -145,7 +154,15 @@ export function AssistantDrawer({ isOpen, onClose, trip, activeDay, onApplyReord
             </p>
           </div>
         </div>
-        <IconButton label="Zamknij Asystenta" onClick={onClose}><X className="w-4 h-4" /></IconButton>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span
+            title={AI_MODE_BADGE[aiMode].hint}
+            className={cx('px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap', AI_MODE_BADGE[aiMode].className)}
+          >
+            {AI_MODE_BADGE[aiMode].label}
+          </span>
+          <IconButton label="Zamknij Asystenta" onClick={onClose}><X className="w-4 h-4" /></IconButton>
+        </div>
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3" aria-live="polite">
