@@ -13,17 +13,17 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const STATES: Record<NonNullable<InputProps['state']>, string> = {
-  default: 'border-slate-200/80 focus:ring-emerald-500/20 focus:border-emerald-500',
-  success: 'border-emerald-500 focus:ring-emerald-500/20',
-  error: 'border-red-400 focus:ring-red-400/20',
+  default: 'border-stone-300 focus:ring-zinc-900/10 focus:border-zinc-900',
+  success: 'border-emerald-600 focus:ring-emerald-600/15',
+  error: 'border-red-400 focus:ring-red-400/15',
 };
 
 const FIELD =
-  'w-full py-3 bg-slate-50/80 border rounded-xl text-slate-900 text-sm placeholder:text-slate-400 ' +
-  'hover:border-slate-300 focus:outline-none focus:ring-2 focus:bg-white transition-all';
+  'w-full py-2.5 bg-white border rounded-lg text-zinc-900 text-sm placeholder:text-stone-400 ' +
+  'hover:border-stone-400 focus:outline-none focus:ring-4 transition-colors';
 
 const Label = ({ children }: { children: ReactNode }) => (
-  <span className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">{children}</span>
+  <span className="block text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1.5">{children}</span>
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
@@ -33,16 +33,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const field = (
     <div className="relative">
       {icon && (
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 [&>svg]:h-5 [&>svg]:w-5">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400 [&>svg]:h-4 [&>svg]:w-4">
           {icon}
         </div>
       )}
       <input
         ref={ref}
-        className={cx(FIELD, icon ? 'pl-11' : 'pl-4', rightSlot ? 'pr-12' : 'pr-4', STATES[state], className)}
+        className={cx(FIELD, icon ? 'pl-10' : 'pl-3.5', rightSlot ? 'pr-12' : 'pr-3.5', STATES[state], className)}
         {...rest}
       />
-      {rightSlot && <div className="absolute inset-y-0 right-0 pr-4 flex items-center">{rightSlot}</div>}
+      {rightSlot && <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center">{rightSlot}</div>}
     </div>
   );
   if (!label) return field;
@@ -64,7 +64,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   ref,
 ) {
   const field = (
-    <select ref={ref} className={cx(FIELD, 'px-4 cursor-pointer', STATES.default, className)} {...rest}>
+    <select ref={ref} className={cx(FIELD, 'px-3.5 cursor-pointer', STATES.default, className)} {...rest}>
       {children}
     </select>
   );

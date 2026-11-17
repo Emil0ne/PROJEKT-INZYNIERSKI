@@ -22,41 +22,41 @@ export function AppHeader({ backTo, title, subtitle, layout = 'page', userName =
   return (
     <header
       className={cx(
-        'bg-white/80 backdrop-blur-lg border-b border-slate-200/80 shadow-sm shrink-0',
+        'bg-white border-b border-stone-200 shrink-0',
         isPage ? `sticky top-0 ${LAYER.header}` : `relative ${LAYER.panel}`,
       )}
     >
       <div className={cx(
-        'flex items-center justify-between px-4',
-        isPage ? 'max-w-7xl mx-auto sm:px-6 lg:px-8 h-20' : 'h-16',
+        'flex items-center justify-between px-4 h-14',
+        isPage && 'max-w-7xl mx-auto sm:px-6 lg:px-8',
       )}>
-        <div className="flex items-center gap-4 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           {backTo && (
-            <Link to={backTo} aria-label="Wróć do listy podróży" className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-emerald-600 cursor-pointer">
+            <Link to={backTo} aria-label="Wróć do listy podróży" className="p-1.5 hover:bg-stone-100 rounded-lg transition-colors text-stone-500 hover:text-zinc-900 cursor-pointer">
               <ArrowLeft className="w-5 h-5" />
             </Link>
           )}
           {title ? (
             <div className="min-w-0">
-              <h1 className="font-black text-lg text-slate-900 leading-tight truncate max-w-md">{title}</h1>
-              {subtitle && <div className="flex items-center gap-2 text-xs font-bold text-slate-500">{subtitle}</div>}
+              <h1 className="font-semibold tracking-tight text-base text-zinc-900 leading-tight truncate max-w-md">{title}</h1>
+              {subtitle && <div className="flex items-center gap-2 text-xs text-stone-500">{subtitle}</div>}
             </div>
           ) : (
-            <Link to="/dashboard" className="flex items-center gap-3 group cursor-pointer">
-              <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-md shadow-emerald-200 transition-transform group-hover:scale-105">
-                <Globe2 className="w-6 h-6" />
+            <Link to="/dashboard" className="flex items-center gap-2.5 cursor-pointer">
+              <div className="bg-zinc-900 p-1.5 rounded-lg text-white">
+                <Globe2 className="w-5 h-5" />
               </div>
-              <span className="text-2xl font-black tracking-tight text-slate-900">TravelPlanner</span>
+              <span className="text-lg font-semibold tracking-tight text-zinc-900">TravelPlanner</span>
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-3 mr-2 border-r border-slate-200 pr-6">
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold">{userName.charAt(0)}</div>
-            <span className="text-sm font-medium text-slate-700">Cześć, {userName}</span>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2.5 mr-1 border-r border-stone-200 pr-4">
+            <div className="w-8 h-8 bg-stone-100 border border-stone-200 rounded-full flex items-center justify-center text-zinc-700 text-sm font-semibold">{userName.charAt(0)}</div>
+            <span className="text-sm text-stone-600">Cześć, {userName}</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="font-medium text-slate-500 hover:text-red-500 hover:bg-red-50">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="hover:text-red-600 hover:bg-red-50">
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:block">Wyloguj</span>
           </Button>

@@ -12,3 +12,6 @@ export const DAY_COLORS = ['#10b981', '#2563eb', '#f59e0b', '#9333ea', '#f43f5e'
 
 /** Fallback koloru pinezki, gdy dzień nie ma ustawionego koloru. */
 export const DEFAULT_PIN_COLOR = DAY_COLORS[0];
+
+/** Domyślny kolor dnia w planerze (klasa Tailwinda), gdy dzień nie ma własnego koloru. */
+export const DEFAULT_DAY_CLASS = 'bg-emerald-600';

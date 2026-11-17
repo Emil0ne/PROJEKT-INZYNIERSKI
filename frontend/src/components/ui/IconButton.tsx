@@ -10,9 +10,9 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const VARIANTS = {
-  neutral: 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50',
-  danger: 'text-slate-400 hover:text-red-600 hover:bg-red-50',
-  overlay: 'text-white bg-slate-900/40 hover:bg-slate-900/60 backdrop-blur-md',
+  neutral: 'text-stone-400 hover:text-zinc-900 hover:bg-stone-100',
+  danger: 'text-stone-400 hover:text-red-600 hover:bg-red-50',
+  overlay: 'text-white bg-zinc-900/50 hover:bg-zinc-900/70 backdrop-blur-md',
 } as const;
 
 /** Mały przycisk z samą ikoną – zawsze z aria-label. */
@@ -28,7 +28,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       title={label}
       className={cx(
         'p-1.5 transition-colors cursor-pointer shrink-0',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900/20',
         round ? 'rounded-full' : 'rounded-lg',
         VARIANTS[variant],
         className,

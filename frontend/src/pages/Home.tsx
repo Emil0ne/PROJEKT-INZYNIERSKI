@@ -1,33 +1,36 @@
 import { useEffect } from 'react';
-import { motion, type Variants } from 'framer-motion';
 import {
-  MapPin, ArrowRight, CalendarDays, CheckCircle2,
-  Navigation, ChevronDown, Sparkles, Route,
-  Star, Quote, Wallet, PieChart, Users, Receipt
+  MapPin, ArrowRight, CalendarDays, Check,
+  Navigation, Wallet, Plane, Luggage, Clock,
 } from 'lucide-react';
-import { Button, Card, SectionHeader } from '../components/ui';
-
-const heroVariants: Variants = {
-  hidden: { opacity: 0, y: 40 },
-  visible: (custom: number) => ({ opacity: 1, y: 0, transition: { delay: custom * 0.15, duration: 0.8, ease: "easeOut" }})
-};
-
-const scrollReveal: Variants = {
-  hidden: { opacity: 0, y: 50 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" } }
-};
+import { Button, Card, Input } from '../components/ui';
 
 interface HomeProps {
   onOpenAuth: (mode: 'login' | 'register') => void;
 }
 
+const Eyebrow = ({ children }: { children: string }) => (
+  <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-3">{children}</p>
+);
+
 const FeatureList = ({ items }: { items: string[] }) => (
-  <ul className="space-y-4">
-    {items.map((item, i) => (
-      <li key={i} className="flex items-center gap-3 text-slate-700 font-medium text-lg"><CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" /> {item}</li>
+  <ul className="space-y-2.5">
+    {items.map((item) => (
+      <li key={item} className="flex items-start gap-2.5 text-stone-700 text-sm">
+        <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" /> {item}
+      </li>
     ))}
   </ul>
 );
+
+const FEATURES = [
+  { icon: CalendarDays, title: 'Harmonogram dzień po dniu', desc: 'Oś czasu z godzinami, czasem trwania i kolorami dni. Punkty planu od razu trafiają na mapę.' },
+  { icon: Navigation, title: 'Mapa i trasa', desc: 'Wszystkie miejsca na jednej mapie, z trasą łączącą kolejne punkty dnia i podglądem dystansów.' },
+  { icon: Plane, title: 'Loty i noclegi', desc: 'Rezerwacje lotów i hoteli w jednym miejscu, z wyszukiwarką lotnisk.' },
+  { icon: Wallet, title: 'Budżet i rozliczenia', desc: 'Wydatki w kategoriach, podział kosztów między uczestników i pasek wykorzystania budżetu.' },
+  { icon: Luggage, title: 'Lista pakowania', desc: 'Checklista przed wyjazdem – odhaczaj rzeczy i nie zapomnij o niczym.' },
+  { icon: Clock, title: 'Kontrola tempa', desc: 'Automatyczne liczenie czasu spędzonego w atrakcjach i czasu wolnego.' },
+];
 
 export function Home({ onOpenAuth }: HomeProps) {
   useEffect(() => {
@@ -35,229 +38,138 @@ export function Home({ onOpenAuth }: HomeProps) {
     window.scrollTo(0, 0);
   }, []);
 
-  const scrollToHowItWorks = () => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-
   return (
     <>
       {/* HERO */}
-      <section className="relative min-h-screen flex flex-col justify-center pt-24 pb-12 overflow-hidden">
-        <div className="absolute top-0 right-0 -z-10 w-[900px] h-[900px] bg-emerald-100/50 rounded-full blur-3xl opacity-50 translate-x-1/3 -translate-y-1/4"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex items-center">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center w-full">
-            <div className="text-left z-10 py-12 lg:py-0">
-              <motion.div custom={1} initial="hidden" animate="visible" variants={heroVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-bold mb-8 shadow-sm">
-                <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span></span>
-                Nowy wymiar planowania
-              </motion.div>
+      <section className="pt-28 pb-20 lg:pt-36 lg:pb-28">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-6">
+            <Eyebrow>Planer podróży</Eyebrow>
+            <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-semibold tracking-tight text-zinc-900 leading-[1.08] mb-5">
+              Zaplanuj podróż.<br />Bez dziesięciu zakładek.
+            </h1>
+            <p className="text-lg text-stone-600 mb-8 max-w-lg leading-relaxed">
+              Harmonogram, mapa, loty, hotele i budżet w jednym narzędziu. Układaj plan dzień po dniu i widź całą trasę na mapie.
+            </p>
 
-              <motion.h1 custom={2} initial="hidden" animate="visible" variants={heroVariants} className="text-6xl lg:text-[5.5rem] font-extrabold tracking-tight text-slate-900 mb-8 leading-[1.05]">
-                Zaplanuj podróż życia <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400">bez stresu.</span>
-              </motion.h1>
-
-              <motion.p custom={3} initial="hidden" animate="visible" variants={heroVariants} className="text-xl text-slate-500 mb-12 max-w-xl leading-relaxed">
-                Koniec z dziesiątkami otwartych zakładek. Zbuduj przejrzysty harmonogram, zoptymalizuj trasę na mapie i miej wszystkie detale wyjazdu zawsze pod ręką.
-              </motion.p>
-
-              <motion.div custom={4} initial="hidden" animate="visible" variants={heroVariants} className="bg-white/80 backdrop-blur-lg p-3 rounded-full shadow-xl border border-slate-200/80 flex flex-col sm:flex-row items-center gap-3 max-w-3xl hover:shadow-2xl transition-shadow duration-300">
-                <div className="flex-1 flex items-center px-5 w-full py-3 sm:py-0">
-                  <MapPin className="w-6 h-6 text-emerald-500 mr-4 shrink-0" />
-                  <input type="text" placeholder="Dokąd chcesz pojechać? np. Rzym, Madera..." className="w-full py-2 outline-none text-slate-700 bg-transparent text-lg placeholder:text-slate-400 font-medium"/>
-                </div>
-                <Button pill size="lg" onClick={() => onOpenAuth('register')} className="group w-full sm:w-auto shrink-0 overflow-hidden relative hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                  <span className="relative z-10 flex items-center gap-2">Rozpocznij <ArrowRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1.5" /></span>
-                  <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0"></div>
-                </Button>
-              </motion.div>
-            </div>
-
-            <motion.div custom={5} initial="hidden" animate="visible" variants={heroVariants} className="relative hidden lg:block h-[650px] w-full">
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[110%] h-[500px] bg-white rounded-[2.5rem] shadow-2xl border border-slate-200/80 p-3 transform rotate-2 hover:rotate-0 transition-transform duration-700 ease-out z-10">
-                <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=1000&q=80" alt="Map view" className="w-full h-full object-cover rounded-[2rem] opacity-90"/>
-                <motion.div animate={{ y: [0, -15, 0] }} transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }} className="absolute top-1/4 left-1/4 bg-white/90 backdrop-blur p-3 rounded-2xl shadow-xl border border-slate-200/80 flex items-center gap-3">
-                  <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600"><Navigation className="w-5 h-5" /></div>
-                  <div><p className="text-sm font-bold text-slate-800">Koloseum</p><p className="text-[10px] font-semibold text-emerald-600">Zoptymalizowano trasę</p></div>
-                </motion.div>
-                <motion.div animate={{ y: [0, 15, 0] }} transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }} className="absolute bottom-6 left-12 bg-white/90 backdrop-blur p-5 rounded-3xl shadow-2xl border border-slate-200/80 w-72 z-20">
-                  <div className="flex items-center justify-between mb-4"><span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dzień 1</span><span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg">14 Maja</span></div>
-                  <div className="space-y-3">
-                    <div className="flex gap-3 items-start"><div className="w-2 h-2 mt-1.5 rounded-full bg-emerald-500 shrink-0"></div><div><p className="text-sm font-bold text-slate-800">Śniadanie przy fontannie</p><p className="text-xs text-slate-500 mt-0.5">09:00 • 45 min</p></div></div>
-                    <div className="flex gap-3 items-start"><div className="w-2 h-2 mt-1.5 rounded-full bg-slate-300 shrink-0"></div><div><p className="text-sm font-bold text-slate-800">Zwiedzanie Panteonu</p><p className="text-xs text-slate-500 mt-0.5">10:30 • 2h</p></div></div>
-                  </div>
-                </motion.div>
+            <div className="flex flex-col sm:flex-row gap-2 max-w-lg">
+              <div className="flex-1">
+                <Input icon={<MapPin />} placeholder="Dokąd chcesz pojechać? np. Rzym, Madera…" aria-label="Cel podróży" />
               </div>
-            </motion.div>
+              <Button size="md" onClick={() => onOpenAuth('register')} className="group sm:px-5">
+                Rozpocznij <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            </div>
+            <p className="text-xs text-stone-500 mt-3">Darmowe konto. Bez karty kredytowej.</p>
           </div>
-        </div>
 
-        <motion.button onClick={scrollToHowItWorks} custom={6} initial="hidden" animate="visible" variants={heroVariants} className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer text-slate-400 hover:text-emerald-500 transition-colors focus:outline-none">
-          <span className="text-xs font-bold uppercase tracking-[0.2em]">Odkryj aplikację</span>
-          <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}><ChevronDown className="w-6 h-6" /></motion.div>
-        </motion.button>
-      </section>
-
-      {/* JAK TO DZIAŁA */}
-      <section id="how-it-works" className="py-24 bg-white border-y border-slate-200/80 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="mb-16">
-            <SectionHeader title="Jak działa TravelPlanner?" description="Trzy proste kroki, które dzielą Cię od perfekcyjnie zorganizowanego wyjazdu." />
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-0.5 bg-slate-100 -translate-y-1/2 -z-10"></div>
-            {[
-              { icon: MapPin, title: "1. Określ cel", desc: "Podaj miejsce, daty i swoje preferencje podróżnicze." },
-              { icon: Sparkles, title: "2. Personalizuj", desc: "Dostosuj wygenerowany plan, dodaj atrakcje i ułóż logistykę." },
-              { icon: Route, title: "3. Podróżuj", desc: "Zabierz gotowy plan w drogę i kontroluj wszystkie szczegóły." }
-            ].map((step, i) => (
-              <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={scrollReveal}>
-                <Card padding="lg" hoverable className="text-center h-full shadow-xl shadow-slate-200/20">
-                  <div className="w-16 h-16 mx-auto bg-emerald-50 rounded-full flex items-center justify-center mb-6 border-4 border-white shadow-sm"><step.icon className="w-7 h-7 text-emerald-500" /></div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h3>
-                  <p className="text-slate-500 leading-relaxed">{step.desc}</p>
-                </Card>
-              </motion.div>
-            ))}
+          {/* Podgląd produktu */}
+          <div className="lg:col-span-6 hidden lg:block">
+            <Card padding="none" className="overflow-hidden shadow-sm">
+              <div className="grid grid-cols-5 h-[380px]">
+                <div className="col-span-2 p-5 border-r border-stone-200 bg-white">
+                  <div className="flex items-center justify-between mb-5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">Dzień 1</span>
+                    <span className="text-xs font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">14 maja</span>
+                  </div>
+                  <ol className="relative space-y-5 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-stone-200">
+                    {[
+                      { t: '09:00', n: 'Śniadanie przy fontannie', d: '45 min', on: true },
+                      { t: '10:30', n: 'Zwiedzanie Panteonu', d: '2 h', on: true },
+                      { t: '13:00', n: 'Koloseum', d: '2,5 h', on: false },
+                    ].map((s) => (
+                      <li key={s.n} className="relative pl-6">
+                        <span className={`absolute left-0 top-1.5 w-[11px] h-[11px] rounded-full border-2 border-white ring-1 ${s.on ? 'bg-emerald-600 ring-emerald-600' : 'bg-stone-300 ring-stone-300'}`} />
+                        <p className="text-sm font-medium text-zinc-900 leading-snug">{s.n}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">{s.t} · {s.d}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="col-span-3 relative bg-stone-100">
+                  <img
+                    src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=900&q=70"
+                    alt="Widok mapy"
+                    className="absolute inset-0 w-full h-full object-cover grayscale opacity-70"
+                  />
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 380" fill="none" aria-hidden>
+                    <path d="M70 90 C 120 130, 150 200, 200 230 S 240 300, 230 330" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 7" />
+                  </svg>
+                  {[{ x: '23%', y: '24%' }, { x: '66%', y: '60%' }, { x: '76%', y: '86%' }].map((p, i) => (
+                    <span key={i} className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-600 text-white text-xs font-semibold flex items-center justify-center ring-2 ring-white shadow-sm" style={{ left: p.x, top: p.y }}>{i + 1}</span>
+                  ))}
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
       </section>
 
       {/* FUNKCJE */}
-      <section className="pt-32 pb-16 bg-slate-50 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="mb-24">
-            <SectionHeader size="lg" title="Wszystko, czego potrzebujesz na wyjazd" description={'Tworzenie exceli i przeskakiwanie między aplikacjami to przeszłość. Prawdziwe narzędzie "all-in-one".'} />
-          </motion.div>
-
-          {/* Sekcja 1: Harmonogram */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="grid md:grid-cols-2 gap-16 items-center mb-32">
-            <div className="order-2 md:order-1">
-              <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><CalendarDays className="w-8 h-8 text-emerald-600" /></div>
-              <h3 className="text-4xl font-bold text-slate-900 mb-6">Przejrzysty harmonogram</h3>
-              <p className="text-slate-600 text-xl mb-8 leading-relaxed">Układaj plany dzień po dniu. Dodawaj własne punkty, przeliczaj czas spędzony w atrakcjach i miej pełną kontrolę nad tempem wycieczki.</p>
-              <FeatureList items={['Zarządzanie dniami i godzinami', 'Automatyczne liczenie czasu wolnego', 'Ustalanie priorytetów zwiedzania']} />
-            </div>
-            <Card padding="lg" radius="xl" className="order-1 md:order-2 shadow-xl shadow-slate-200/50">
-              <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-6 space-y-4 hover:shadow-md transition-shadow duration-300">
-                <div className="border-l-4 border-emerald-400 pl-4 py-2 relative bg-white p-4 rounded-r-xl shadow-sm">
-                  <div className="absolute w-4 h-4 bg-emerald-500 rounded-full -left-[10px] top-5 border-4 border-white"></div>
-                  <p className="text-sm font-bold text-emerald-600 mb-1">09:00 - 11:00</p><p className="text-lg font-bold text-slate-800">Galeria Uffizi</p><p className="text-slate-500 mt-1">Zarezerwuj bilety online z wyprzedzeniem.</p>
+      <section id="how-it-works" className="py-20 bg-white border-y border-stone-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mb-12">
+            <Eyebrow>Funkcje</Eyebrow>
+            <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 mb-3">Wszystko, czego potrzebujesz na wyjazd</h2>
+            <p className="text-stone-600">Zamiast arkuszy i przeskakiwania między aplikacjami – jedno miejsce na cały plan.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-stone-200 border border-stone-200 rounded-xl overflow-hidden">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="bg-white p-6">
+                <div className="w-9 h-9 rounded-lg border border-stone-200 bg-stone-50 flex items-center justify-center mb-4">
+                  <f.icon className="w-4 h-4 text-zinc-800" />
                 </div>
-                <div className="border-l-4 border-slate-300 pl-4 py-2 relative bg-white p-4 rounded-r-xl shadow-sm">
-                  <div className="absolute w-4 h-4 bg-slate-400 rounded-full -left-[10px] top-5 border-4 border-white"></div>
-                  <p className="text-sm font-bold text-slate-400 mb-1">11:30 - 13:00</p><p className="text-lg font-bold text-slate-800">Ponte Vecchio</p><p className="text-slate-500 mt-1">Spacer i robienie zdjęć.</p>
-                </div>
+                <h3 className="font-semibold tracking-tight text-zinc-900 mb-1.5">{f.title}</h3>
+                <p className="text-sm text-stone-600 leading-relaxed">{f.desc}</p>
               </div>
-            </Card>
-          </motion.div>
-
-          {/* Sekcja 2: Mapa */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="grid md:grid-cols-2 gap-16 items-center mb-32">
-            <Card padding="lg" radius="xl" className="shadow-xl shadow-slate-200/50">
-              <div className="w-full h-[300px] bg-emerald-100/50 rounded-2xl border border-emerald-200 flex items-center justify-center relative overflow-hidden group hover:bg-emerald-100/80 transition-colors">
-                <div className="absolute top-1/2 left-[30%] bg-white p-3 rounded-full shadow-lg z-10 transition-transform group-hover:scale-110 group-hover:-translate-y-2"><MapPin className="w-6 h-6 text-emerald-600"/></div>
-                <div className="absolute top-[30%] right-[30%] bg-white p-3 rounded-full shadow-lg z-10 transition-transform group-hover:scale-110 group-hover:-translate-y-2 delay-75"><MapPin className="w-6 h-6 text-emerald-600"/></div>
-                <div className="absolute top-[40%] left-[38%] w-40 h-1 bg-emerald-500/50 rotate-[-15deg] rounded-full"></div>
-              </div>
-            </Card>
-            <div>
-              <div className="w-16 h-16 bg-sky-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><Navigation className="w-8 h-8 text-sky-600" /></div>
-              <h3 className="text-4xl font-bold text-slate-900 mb-6">Logistyka bez tajemnic</h3>
-              <p className="text-slate-600 text-xl mb-8 leading-relaxed">Każdy punkt z Twojego planu automatycznie ląduje na interaktywnej mapie. Od razu widzisz, czy Twoja trasa ma sens i nie nadkładasz kilometrów.</p>
-              <FeatureList items={['Wizualizacja punktów per dzień', 'Automatyczne centrowanie', 'Podgląd dystansów pieszych']} />
-            </div>
-          </motion.div>
-
-          {/* Sekcja 3: Budżet i rozliczenia */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="grid md:grid-cols-2 gap-16 items-center">
-            <div className="order-2 md:order-1">
-              <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><Wallet className="w-8 h-8 text-amber-600" /></div>
-              <h3 className="text-4xl font-bold text-slate-900 mb-6">Rozliczenia pod kontrolą</h3>
-              <p className="text-slate-600 text-xl mb-8 leading-relaxed">Planujesz wyjazd ze znajomymi? Rejestrujcie koszty na bieżąco. Aplikacja automatycznie przeliczy wydatki i pokaże, kto komu ile wisi.</p>
-              <FeatureList items={['Podział kosztów między uczestników', 'Kategoryzacja wydatków (jedzenie, nocleg)', 'Automatyczne podsumowanie wyjazdu']} />
-            </div>
-            <Card padding="lg" radius="xl" className="order-1 md:order-2 shadow-xl shadow-slate-200/50">
-              <div className="w-full h-[300px] bg-amber-50/60 rounded-2xl border border-amber-100 p-6 flex flex-col justify-center relative overflow-hidden group">
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 mb-4 flex justify-between items-center z-10 transition-transform group-hover:-translate-y-1">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center"><PieChart className="w-5 h-5 text-amber-600" /></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-400">CAŁKOWITY KOSZT</p>
-                      <p className="text-lg font-black text-slate-800">4 250,00 PLN</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 flex justify-between items-center z-10 transition-transform group-hover:-translate-y-1 delay-75">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center"><Receipt className="w-5 h-5 text-emerald-600" /></div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-400">TWÓJ UDZIAŁ</p>
-                      <p className="text-lg font-black text-slate-800">2 125,00 PLN</p>
-                    </div>
-                  </div>
-                  <div className="flex -space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-500">Ty</div>
-                    <div className="w-8 h-8 rounded-full bg-slate-300 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-500"><Users className="w-4 h-4"/></div>
-                  </div>
-                </div>
-
-                <Wallet className="absolute -bottom-8 -right-8 w-48 h-48 text-amber-200/40 z-0 transition-transform group-hover:scale-110 duration-700" />
-              </div>
-            </Card>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* OPINIE */}
-      <section className="py-24 bg-white border-t border-slate-200/80 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="mb-16">
-            <SectionHeader title="Podróżnicy już to wiedzą" description="Zobacz, co o planowaniu z nami mówią pierwsi testerzy." />
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { name: "Michał T.", role: "Digital Nomad", text: "Kiedyś spędzałem godziny w Excelu. Teraz wrzucam miasta na mapę, a TravelPlanner sam układa mi optymalną trasę. Złoto!" },
-              { name: "Anna K.", role: "Podróżuje z rodziną", text: "Najlepsza funkcja to budżet i dzielenie kosztów. W końcu nie musimy się z mężem zastanawiać, ile wydaliśmy na bilety w Rzymie." },
-              { name: "Kamil R.", role: "Weekendowy odkrywca", text: "Świetnie sprawdza się do zarządzania czasem podczas intensywnych weekendowych city-breaków. Nic nam nie umyka." }
-            ].map((review, i) => (
-              <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={scrollReveal}>
-                <Card padding="lg" hoverable className="bg-slate-50 relative h-full">
-                  <Quote className="absolute top-6 right-6 w-8 h-8 text-slate-200" />
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(5)].map((_, j) => <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
-                  </div>
-                  <p className="text-slate-600 mb-6 italic">"{review.text}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold">{review.name.charAt(0)}</div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-900">{review.name}</p>
-                      <p className="text-xs text-slate-500">{review.role}</p>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* JAK TO DZIAŁA */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-start">
+          <div>
+            <Eyebrow>Jak to działa</Eyebrow>
+            <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 mb-6">Trzy kroki do gotowego planu</h2>
+            <ol className="space-y-6">
+              {[
+                ['Określ cel', 'Podaj miejsce, daty i swoje preferencje podróżnicze.'],
+                ['Personalizuj', 'Dodaj atrakcje, ułóż harmonogram i logistykę.'],
+                ['Podróżuj', 'Zabierz gotowy plan w drogę i kontroluj szczegóły.'],
+              ].map(([t, d], i) => (
+                <li key={t} className="flex gap-4">
+                  <span className="w-7 h-7 shrink-0 rounded-full bg-zinc-900 text-white text-sm font-medium flex items-center justify-center">{i + 1}</span>
+                  <div>
+                    <h3 className="font-semibold tracking-tight text-zinc-900">{t}</h3>
+                    <p className="text-sm text-stone-600 mt-0.5">{d}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <Card padding="lg">
+            <Eyebrow>Podział kosztów</Eyebrow>
+            <div className="divide-y divide-stone-200 border-y border-stone-200 mb-5">
+              <div className="flex justify-between py-3 text-sm"><span className="text-stone-600">Całkowity koszt</span><span className="font-semibold tabular-nums text-zinc-900">4 250,00 PLN</span></div>
+              <div className="flex justify-between py-3 text-sm"><span className="text-stone-600">Twój udział</span><span className="font-semibold tabular-nums text-zinc-900">2 125,00 PLN</span></div>
+            </div>
+            <FeatureList items={['Podział kosztów między uczestników', 'Kategoryzacja wydatków', 'Automatyczne podsumowanie wyjazdu']} />
+          </Card>
+        </div>
+      </section>
+
       {/* CTA */}
-      <section className="py-24 bg-white relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={scrollReveal} className="bg-gradient-to-br from-emerald-600 to-teal-900 rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl shadow-emerald-900/20">
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
-              <div className="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl"></div>
-              <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-emerald-400 rounded-full mix-blend-overlay filter blur-3xl"></div>
-            </div>
-            <div className="relative z-10 max-w-2xl mx-auto">
-              <h2 className="text-4xl md:text-5xl font-black text-white mb-6 leading-tight">Gotowy na podróż bez stresu?</h2>
-              <p className="text-emerald-100 text-lg md:text-xl mb-10">Dołącz do nas i zacznij planować swoje wyjazdy w zupełnie nowym wymiarze. Za darmo.</p>
-              <Button variant="light" pill size="lg" onClick={() => onOpenAuth('register')}>
-                Załóż darmowe konto
-              </Button>
-            </div>
-          </motion.div>
+      <section className="pb-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-zinc-900 rounded-xl px-8 py-14 text-center">
+            <h2 className="text-3xl font-semibold tracking-tight text-white mb-3">Gotowy na podróż bez stresu?</h2>
+            <p className="text-stone-400 mb-7 max-w-lg mx-auto">Zacznij planować swój następny wyjazd. Za darmo.</p>
+            <Button variant="light" size="lg" onClick={() => onOpenAuth('register')}>
+              Załóż darmowe konto
+            </Button>
+          </div>
         </div>
       </section>
     </>

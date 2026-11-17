@@ -9,7 +9,7 @@ import { Button } from './ui';
 import type { ClickedPoint, Place } from '../types/place';
 
 const explorerPinHtml = renderToStaticMarkup(
-  <div className="w-3.5 h-3.5 bg-slate-900 rounded-full shadow-md border-[2px] border-white ring-2 ring-black/10 transform transition-transform hover:scale-125"></div>
+  <div className="w-3.5 h-3.5 bg-zinc-900 rounded-full shadow-sm border-[2px] border-white ring-2 ring-black/10 transform transition-transform hover:scale-125"></div>
 );
 
 const explorerPin = L.divIcon({
@@ -25,8 +25,8 @@ const createPlannerPin = (colorValue: string) => {
   const isCustomColor = colorValue && colorValue.startsWith('#');
   const style = isCustomColor ? { backgroundColor: colorValue } : {};
   const className = isCustomColor 
-    ? "w-6 h-6 text-white rounded-full shadow-lg border-2 border-white flex items-center justify-center transform transition-transform hover:scale-125"
-    : `w-6 h-6 ${colorValue || 'bg-emerald-500'} text-white rounded-full shadow-lg border-2 border-white flex items-center justify-center transform transition-transform hover:scale-125`;
+    ? "w-6 h-6 text-white rounded-full shadow-sm border-2 border-white flex items-center justify-center transform transition-transform hover:scale-125"
+    : `w-6 h-6 ${colorValue || 'bg-emerald-600'} text-white rounded-full shadow-sm border-2 border-white flex items-center justify-center transform transition-transform hover:scale-125`;
 
   const html = renderToStaticMarkup(
     <div className={className} style={style}>
@@ -118,7 +118,7 @@ export function TravelMap({
       {displayedPlaces.map(place => {
         const isVisited = visitedPlaces.some(p => p.id === place.id);
         const currentPin = isPlannerMode 
-          ? createPlannerPin(place.color || 'bg-emerald-500') 
+          ? createPlannerPin(place.color || 'bg-emerald-600') 
           : explorerPin;
 
         return (
@@ -131,13 +131,13 @@ export function TravelMap({
               popupclose: () => setOpenPopupPlace(null)
             }}
           >
-            <Popup autoPan={false} closeButton={false} className="app-popup">
-              <div className="bg-white/95 backdrop-blur-lg rounded-2xl p-3.5 shadow-xl border border-slate-200/80 min-w-[240px] flex items-center justify-between gap-4">
+            <Popup autoPan autoPanPadding={[24, 72]} closeButton={false} className="app-popup">
+              <div className="bg-white rounded-lg p-3.5 shadow-sm border border-stone-200/80 min-w-[240px] flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2.5 overflow-hidden">
-                  <div className="bg-emerald-50 p-2 rounded-xl shrink-0">
-                    <MapPin className="w-4 h-4 text-emerald-600" />
+                  <div className="bg-stone-100 p-2 rounded-lg shrink-0">
+                    <MapPin className="w-4 h-4 text-stone-600" />
                   </div>
-                  <span className="font-bold text-slate-900 text-xs truncate leading-snug">
+                  <span className="font-bold text-zinc-900 text-xs truncate leading-snug">
                     {place.displayName || place.name}
                   </span>
                 </div>
@@ -149,9 +149,9 @@ export function TravelMap({
                     className="px-3 py-1.5 text-xs shrink-0"
                   >
                     {isVisited ? (
-                      <><Check className="w-3.5 h-3.5 text-emerald-600" /> <span>Dodano</span></>
+                      <><Check className="w-3.5 h-3.5 text-stone-600" /> <span>Dodano</span></>
                     ) : (
-                      <><Plus className="w-3.5 h-3.5 text-emerald-600" /> <span>Dodaj</span></>
+                      <><Plus className="w-3.5 h-3.5 text-stone-600" /> <span>Dodaj</span></>
                     )}
                   </Button>
                 )}
@@ -167,23 +167,25 @@ export function TravelMap({
           eventHandlers={{
             remove: () => onCloseClickedPoint?.()
           }}
+          autoPan
+          autoPanPadding={[24, 72]}
           className="app-popup"
         >
-          <div className="bg-white/95 backdrop-blur-lg rounded-2xl p-4 shadow-xl border border-slate-200/80 min-w-[220px] flex flex-col gap-3">
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-stone-200/80 min-w-[220px] flex flex-col gap-3">
             {clickedPoint.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-2">
-                <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
-                <span className="font-bold text-slate-700 text-xs">Pobieranie lokacji...</span>
+                <Loader2 className="w-4 h-4 text-stone-600 animate-spin" />
+                <span className="font-bold text-stone-700 text-xs">Pobieranie lokacji...</span>
               </div>
             ) : (
               <>
                 <div className="flex items-start gap-2.5">
-                  <div className="bg-emerald-50 p-2 rounded-xl shrink-0 mt-0.5">
-                    <MapPin className="w-4 h-4 text-emerald-600" />
+                  <div className="bg-stone-100 p-2 rounded-lg shrink-0 mt-0.5">
+                    <MapPin className="w-4 h-4 text-stone-600" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Wybrane miejsce</div>
-                    <div className="font-bold text-slate-900 text-sm leading-tight mt-0.5">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-stone-400">Wybrane miejsce</div>
+                    <div className="font-bold text-zinc-900 text-sm leading-tight mt-0.5">
                       {clickedPoint.name}
                     </div>
                   </div>

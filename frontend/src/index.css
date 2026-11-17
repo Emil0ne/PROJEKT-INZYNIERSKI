@@ -9,7 +9,7 @@
 }
 
 body {
-  @apply antialiased bg-[#F8FAFC];
+  @apply antialiased bg-[#FAF9F6] text-zinc-900;
 }
 
 /* Czyszczenie domyślnego dymka Leaflet – wygląd popupa zapewnia nasz jasny komponent (klasa app-popup) */

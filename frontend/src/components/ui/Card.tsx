@@ -2,26 +2,26 @@ import type { HTMLAttributes } from 'react';
 import { cx } from './cx';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  /** Efekt szkła (półprzezroczyste tło + blur). */
+  /** Zachowane dla zgodności – karty są teraz zawsze pełną bielą. */
   glass?: boolean;
-  /** Podniesienie i cień po najechaniu. */
+  /** Delikatne podniesienie obramowania po najechaniu. */
   hoverable?: boolean;
   padding?: 'none' | 'sm' | 'md' | 'lg';
-  /** Zaokrąglenie: md = 1.5rem, lg = 2rem (domyślne), xl = 2.5rem. */
+  /** Zaokrąglenie: md = rounded-lg, lg = rounded-xl (domyślne), xl = rounded-2xl. */
   radius?: 'md' | 'lg' | 'xl';
 }
 
-const PADDING = { none: '', sm: 'p-4', md: 'p-6', lg: 'p-8' } as const;
-const RADIUS = { md: 'rounded-3xl', lg: 'rounded-[2rem]', xl: 'rounded-[2.5rem]' } as const;
+const PADDING = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6' } as const;
+const RADIUS = { md: 'rounded-lg', lg: 'rounded-xl', xl: 'rounded-2xl' } as const;
 
-export function Card({ glass = false, hoverable = false, padding = 'md', radius = 'lg', className, ...rest }: CardProps) {
+export function Card({ glass, hoverable = false, padding = 'md', radius = 'lg', className, ...rest }: CardProps) {
+  void glass; // prop zachowany dla zgodności – karty są zawsze pełną bielą
   return (
     <div
       className={cx(
-        'border border-slate-200/80 shadow-sm',
+        'bg-white border border-stone-200 shadow-xs',
         RADIUS[radius],
-        glass ? 'bg-white/70 backdrop-blur-lg' : 'bg-white',
-        hoverable && 'transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 hover:border-emerald-200',
+        hoverable && 'transition-all duration-200 hover:shadow-sm hover:border-stone-300',
         PADDING[padding],
         className,
       )}

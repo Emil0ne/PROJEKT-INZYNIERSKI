@@ -20,7 +20,7 @@ interface OverviewViewProps {
 }
 
 const StatLabel = ({ children }: { children: React.ReactNode }) => (
-  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">{children}</div>
+  <div className="text-xs font-semibold uppercase tracking-wider text-stone-400">{children}</div>
 );
 
 export function OverviewView({
@@ -41,47 +41,47 @@ export function OverviewView({
   const { totalSpent, remaining: remainingBudget, percentage } = calculateBudgetSummary(totalBudget, customItems, scheduleItems);
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8 animate-fadeIn">
+    <div className="max-w-4xl mx-auto p-5 space-y-5">
 
       <Card padding="lg" className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
-          <h2 className="text-3xl font-black tracking-tight text-slate-900">{tripTitle}</h2>
-          <p className="text-slate-500 flex items-center gap-2 text-sm font-medium">
-            <MapPin className="w-4 h-4 text-emerald-500" /> {destination}
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">{tripTitle}</h2>
+          <p className="text-stone-500 flex items-center gap-2 text-sm font-medium">
+            <MapPin className="w-4 h-4 text-stone-600" /> {destination}
           </p>
         </div>
 
-        <div className="flex items-center gap-6 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+        <div className="flex items-center gap-6 bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
           <div>
             <StatLabel>Termin wyjazdu</StatLabel>
-            <div className="text-sm font-extrabold text-slate-800 mt-0.5">{startDate || 'Brak'} – {endDate || 'Brak'}</div>
+            <div className="text-sm font-medium text-zinc-900 mt-0.5">{startDate || 'Brak'} – {endDate || 'Brak'}</div>
           </div>
-          <div className="w-px h-8 bg-slate-200"></div>
+          <div className="w-px h-8 bg-stone-200"></div>
           <div>
             <StatLabel>Czas trwania</StatLabel>
-            <div className="text-sm font-extrabold text-slate-800 mt-0.5">{totalDays} {totalDays === 1 ? 'dzień' : totalDays < 5 ? 'dni' : 'dni'}</div>
+            <div className="text-sm font-medium text-zinc-900 mt-0.5">{totalDays} {totalDays === 1 ? 'dzień' : totalDays < 5 ? 'dni' : 'dni'}</div>
           </div>
         </div>
       </Card>
 
       {/* Szybkie podsumowanie budżetu */}
       <Card padding="lg" className="space-y-6">
-        <h3 className="font-black text-lg text-slate-900 flex items-center gap-2">
-          <Wallet className="w-5 h-5 text-emerald-500" /> Podsumowanie Finansowe
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+          <Wallet className="w-5 h-5 text-stone-600" /> Podsumowanie Finansowe
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+          <div className="bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
             <StatLabel>Budżet całkowity</StatLabel>
-            <div className="text-xl font-black text-slate-900 mt-1">{totalBudget} {currency}</div>
+            <div className="text-xl font-semibold text-zinc-900 mt-1">{totalBudget} {currency}</div>
           </div>
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+          <div className="bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
             <StatLabel>Wydano łącznie</StatLabel>
-            <div className="text-xl font-black text-slate-900 mt-1">{totalSpent} {currency}</div>
+            <div className="text-xl font-semibold text-zinc-900 mt-1">{totalSpent} {currency}</div>
           </div>
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+          <div className="bg-stone-50 px-4 py-3 rounded-lg border border-stone-200">
             <StatLabel>Pozostało</StatLabel>
-            <div className={`text-xl font-black mt-1 ${remainingBudget < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+            <div className={`text-xl font-semibold mt-1 ${remainingBudget < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
               {remainingBudget} {currency}
             </div>
           </div>
@@ -89,7 +89,7 @@ export function OverviewView({
 
         {/* Pasek postępu wydatków */}
         <div className="space-y-2">
-          <div className="flex justify-between text-xs font-bold text-slate-600">
+          <div className="flex justify-between text-xs font-medium text-stone-600">
             <span>Wykorzystanie budżetu ({percentage}%)</span>
             <span>Limit: {totalBudget} {currency}</span>
           </div>
@@ -100,15 +100,15 @@ export function OverviewView({
       {/* Koszty stałe i Atrakcje w harmonogramie */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="space-y-4">
-          <h4 className="font-black text-base text-slate-900 flex items-center gap-2">
-            <Plane className="w-4 h-4 text-emerald-500" /> Rezerwacje i koszty stałe ({customItems.length})
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+            <Plane className="w-4 h-4 text-stone-600" /> Rezerwacje i koszty stałe ({customItems.length})
           </h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+          <div className="divide-y divide-stone-200 border-y border-stone-200 max-h-48 overflow-y-auto">
             {customItems.length > 0 ? (
               customItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-sm">
-                  <span className="font-medium text-slate-700 truncate pr-2">{item.title}</span>
-                  <span className="font-bold text-slate-900 shrink-0">{item.cost} {currency}</span>
+                <div key={item.id} className="flex items-center justify-between px-1 py-2.5 text-sm">
+                  <span className="text-stone-700 truncate pr-2">{item.title}</span>
+                  <span className="font-medium text-zinc-900 shrink-0 tabular-nums">{item.cost} {currency}</span>
                 </div>
               ))
             ) : (
@@ -118,18 +118,18 @@ export function OverviewView({
         </Card>
 
         <Card className="space-y-4">
-          <h4 className="font-black text-base text-slate-900 flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-blue-500" /> Atrakcje w harmonogramie ({scheduleItems.length})
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-stone-500" /> Atrakcje w harmonogramie ({scheduleItems.length})
           </h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+          <div className="divide-y divide-stone-200 border-y border-stone-200 max-h-48 overflow-y-auto">
             {scheduleItems.length > 0 ? (
               scheduleItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-sm">
+                <div key={item.id} className="flex items-center justify-between px-1 py-2.5 text-sm">
                   <div className="flex items-center gap-2 truncate pr-2">
-                    <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="font-medium text-slate-700 truncate">{item.title}</span>
+                    <Tag className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                    <span className="text-stone-700 truncate">{item.title}</span>
                   </div>
-                  <span className="font-bold text-slate-900 shrink-0">
+                  <span className="font-medium text-zinc-900 shrink-0 tabular-nums">
                     {item.cost && item.cost > 0 ? `${item.cost} ${currency}` : 'Bezpłatnie'}
                   </span>
                 </div>
@@ -143,13 +143,13 @@ export function OverviewView({
 
       {/* Status przygotowań */}
       <Card className="space-y-4">
-        <h3 className="font-black text-lg text-slate-900 flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Status przygotowań
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-stone-600" /> Status przygotowań
         </h3>
         <div className="max-w-md">
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-sm">
-            <span className="font-medium text-slate-700">Spakowane rzeczy w walizce</span>
-            <span className="font-bold text-slate-700">{packedItemsCount} / {packingItemsCount} pozycji</span>
+          <div className="flex items-center justify-between py-3 border-y border-stone-200 text-sm">
+            <span className="font-medium text-stone-700">Spakowane rzeczy w walizce</span>
+            <span className="font-medium text-zinc-900">{packedItemsCount} / {packingItemsCount} pozycji</span>
           </div>
         </div>
       </Card>

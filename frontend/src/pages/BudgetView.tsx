@@ -106,7 +106,7 @@ export function BudgetView({
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8 animate-fadeIn">
+    <div className="max-w-4xl mx-auto p-5 space-y-5">
       {/* Nagłówek i Statystyki */}
       <Card padding="lg">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
@@ -118,9 +118,9 @@ export function BudgetView({
             description="Zarządzaj finansami, kontroluj koszty stałe i wydatki na miejscu."
           />
 
-          <div className="flex items-center gap-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
+          <div className="flex items-center gap-4 bg-stone-50/80 p-4 rounded-lg border border-stone-200/80">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-between gap-2">
+              <div className="text-xs font-semibold uppercase tracking-wider text-stone-400 flex items-center justify-between gap-2">
                 <span>Całkowity budżet</span>
                 {!isEditingBudget ? (
                   <IconButton
@@ -140,7 +140,7 @@ export function BudgetView({
                     aria-label="Całkowity budżet"
                     value={budgetValueInput}
                     onChange={(e) => setBudgetValueInput(e.target.value)}
-                    className="w-24 px-2 py-1 bg-white border border-slate-200/80 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    className="w-24 px-2 py-1 bg-white border border-stone-200/80 rounded-lg text-sm font-medium focus:outline-none focus:ring-4 focus:ring-zinc-900/10 focus:border-zinc-900"
                     autoFocus
                   />
                   <Button aria-label="Zapisz budżet" title="Zapisz budżet" onClick={handleSaveBudget} className="!p-1 rounded-lg">
@@ -148,15 +148,15 @@ export function BudgetView({
                   </Button>
                 </div>
               ) : (
-                <div className="text-xl font-black text-slate-900">{budget} {currency}</div>
+                <div className="text-xl font-semibold text-zinc-900">{budget} {currency}</div>
               )}
             </div>
 
-            <div className="w-px h-8 bg-slate-200"></div>
+            <div className="w-px h-8 bg-stone-200"></div>
 
             <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Pozostało</div>
-              <div className={`text-xl font-black ${remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+              <div className="text-xs font-semibold uppercase tracking-wider text-stone-400">Pozostało</div>
+              <div className={`text-xl font-semibold ${remaining < 0 ? 'text-red-600' : 'text-zinc-900'}`}>
                 {remaining} {currency}
               </div>
             </div>
@@ -164,39 +164,39 @@ export function BudgetView({
         </div>
 
         {/* Pasek postępu */}
-        <div className="space-y-2 pt-2 border-t border-slate-100">
-          <div className="flex justify-between text-xs font-bold">
-            <span className="text-slate-600">Wydano łącznie: <strong className="text-slate-900">{totalSpent} {currency}</strong> ({percentage}%)</span>
-            <span className="text-slate-400">Limit: {budget} {currency}</span>
+        <div className="space-y-2 pt-2 border-t border-stone-100">
+          <div className="flex justify-between text-xs font-medium">
+            <span className="text-stone-600">Wydano łącznie: <strong className="text-zinc-900">{totalSpent} {currency}</strong> ({percentage}%)</span>
+            <span className="text-stone-400">Limit: {budget} {currency}</span>
           </div>
           <ProgressBar value={percentage} />
         </div>
       </Card>
 
       {/* Rejestr wydatków i Formularz */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="md:col-span-2 space-y-6">
 
           {/* Koszty stałe / Loty, hotele, ubezpieczenie i auto */}
           <Card className="space-y-4">
-            <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-              <Plane className="w-4 h-4 text-emerald-500" /> Loty, hotele, ubezpieczenie i auto
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+              <Plane className="w-4 h-4 text-stone-600" /> Loty, hotele, ubezpieczenie i auto
             </h3>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-stone-200 border-y border-stone-200">
               {customItems.length > 0 ? customItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 hover:bg-slate-50 transition-colors">
+                <div key={item.id} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-stone-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="bg-emerald-100/80 p-2.5 rounded-xl text-emerald-600">
+                    <div className="bg-stone-100 p-2 rounded-lg text-stone-600">
                       {getCategoryIcon(item.category)}
                     </div>
                     <div>
-                      <div className="font-bold text-slate-900 text-sm">{item.title}</div>
-                      <div className="text-xs text-slate-400">{item.category}</div>
+                      <div className="font-medium text-zinc-900 text-sm">{item.title}</div>
+                      <div className="text-xs text-stone-500">{item.category}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-black text-slate-900 text-sm">{item.cost} {currency}</span>
+                    <span className="font-semibold text-zinc-900 text-sm">{item.cost} {currency}</span>
                     <IconButton label="Usuń wydatek" variant="danger" onClick={() => removeCustomItem(item.id)}>
                       <Trash2 className="w-4 h-4" />
                     </IconButton>
@@ -210,22 +210,22 @@ export function BudgetView({
 
           {/* Atrakcje z harmonogramu */}
           <Card className="space-y-4">
-            <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-blue-500" /> Atrakcje z harmonogramu
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-stone-500" /> Atrakcje z harmonogramu
             </h3>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-stone-200 border-y border-stone-200">
               {activeScheduleItems.length > 0 ? (
                 activeScheduleItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80">
+                  <div key={item.id} className="flex items-center justify-between gap-3 px-1 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="bg-blue-100/80 p-2.5 rounded-xl text-blue-600"><Receipt className="w-4 h-4" /></div>
+                      <div className="bg-stone-100 p-2 rounded-lg text-stone-600"><Receipt className="w-4 h-4" /></div>
                       <div>
-                        <div className="font-bold text-slate-900 text-sm">{item.title}</div>
-                        <div className="text-xs text-slate-400">Pobrano z planu dnia</div>
+                        <div className="font-medium text-zinc-900 text-sm">{item.title}</div>
+                        <div className="text-xs text-stone-500">Pobrano z planu dnia</div>
                       </div>
                     </div>
-                    <span className="font-black text-slate-900 text-sm">{item.cost} {currency}</span>
+                    <span className="font-semibold text-zinc-900 text-sm">{item.cost} {currency}</span>
                   </div>
                 ))
               ) : (
@@ -242,8 +242,8 @@ export function BudgetView({
 
         {/* Formularz dodawania wydatku z nowymi kategoriami */}
         <Card className="h-fit space-y-4">
-          <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-            <PieChart className="w-4 h-4 text-slate-400" /> Dodaj wydatek
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+            <PieChart className="w-4 h-4 text-stone-400" /> Dodaj wydatek
           </h3>
           <form onSubmit={handleAddExpense} className="space-y-4">
             <Input

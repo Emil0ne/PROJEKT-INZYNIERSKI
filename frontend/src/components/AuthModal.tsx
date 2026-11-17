@@ -56,7 +56,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
   };
 
   const getConditionColor = (isValid: boolean) => {
-    if (password.length === 0) return 'text-slate-400';
+    if (password.length === 0) return 'text-stone-400';
     return isValid ? 'text-emerald-600 font-medium' : 'text-red-500';
   };
 
@@ -115,7 +115,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
         >
           <div 
             onClick={onClose} 
-            className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm cursor-pointer"
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm cursor-pointer"
           />
 
           <motion.div 
@@ -124,15 +124,15 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
             animate={{ scale: 1, y: 0 }} 
             exit={{ scale: 0.95, y: 20 }} 
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="bg-white w-full max-w-4xl rounded-3xl border border-slate-200/80 shadow-2xl relative z-10 overflow-hidden flex flex-col md:flex-row h-auto md:h-[680px]"
+            className="bg-white w-full max-w-4xl rounded-xl border border-stone-200 shadow-xl relative z-10 overflow-hidden flex flex-col md:flex-row h-auto md:h-[680px]"
           >
-            <div className="hidden md:block md:w-5/12 bg-emerald-900 relative overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=800&q=80" alt="Travel" className="absolute inset-0 w-full h-full object-cover opacity-60"/>
-              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/90 to-transparent"></div>
+            <div className="hidden md:block md:w-5/12 bg-zinc-900 relative overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=800&q=80" alt="Travel" className="absolute inset-0 w-full h-full object-cover opacity-50"/>
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 to-transparent"></div>
               <div className="absolute bottom-10 left-8 right-8 text-white">
-                <div className="flex items-center gap-2 mb-4 opacity-80"><Globe2 className="w-5 h-5" /><span className="font-bold tracking-wide">TravelPlanner</span></div>
+                <div className="flex items-center gap-2 mb-4 opacity-80"><Globe2 className="w-5 h-5" /><span className="font-semibold tracking-tight">TravelPlanner</span></div>
                 <AnimatePresence mode="wait">
-                  <motion.h3 key={initialMode} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="text-2xl font-bold leading-snug">
+                  <motion.h3 key={initialMode} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="text-2xl font-semibold tracking-tight leading-snug">
                     {initialMode === 'login' ? 'Witaj z powrotem na szlaku.' : 
                      initialMode === 'register' ? 'Rozpocznij swoją przygodę już dziś.' : 
                      'Znajdziemy Twój zagubiony szlak.'}
@@ -142,15 +142,15 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
             </div>
 
             <div className="w-full md:w-7/12 p-8 sm:p-12 relative flex flex-col h-full overflow-y-auto">
-              <Button variant="ghost" pill onClick={onClose} aria-label="Zamknij" className="absolute top-6 right-6 !p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 z-20"><X className="w-5 h-5" /></Button>
+              <Button variant="ghost" pill onClick={onClose} aria-label="Zamknij" className="absolute top-6 right-6 !p-2 bg-stone-100 hover:bg-stone-200 text-stone-500 z-20"><X className="w-5 h-5" /></Button>
               
               <AnimatePresence mode="wait">
                 <motion.div key={initialMode} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25, ease: "easeOut" }} className="flex-1 flex flex-col justify-center">
                   <div className="mb-8">
-                    <h2 className="text-3xl font-black text-slate-900">
+                    <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
                       {initialMode === 'login' ? 'Zaloguj się' : initialMode === 'register' ? 'Utwórz konto' : 'Resetuj hasło'}
                     </h2>
-                    <p className="text-slate-500 mt-2">
+                    <p className="text-stone-600 mt-1.5 text-sm">
                       {initialMode === 'login' ? 'Wpisz swoje dane, aby kontynuować.' : 
                        initialMode === 'register' ? 'Wypełnij formularz, aby dołączyć.' : 
                        'Podaj e-mail, na który wyślemy instrukcje.'}
@@ -166,7 +166,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
                         exit={{ opacity: 0, y: -10, height: 0 }}
                         className="mb-4 overflow-hidden"
                       >
-                        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2">
+                        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2">
                           <AlertCircle className="w-4 h-4 shrink-0" />
                           {authError}
                         </div>
@@ -180,7 +180,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
                         exit={{ opacity: 0, y: -10, height: 0 }}
                         className="mb-4 overflow-hidden"
                       >
-                        <div className="p-3 text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2">
+                        <div className="p-3 text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 shrink-0" />
                           Link resetujący został wysłany na Twój e-mail!
                         </div>
@@ -202,7 +202,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         icon={<Lock />}
-                        rightSlot={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>}
+                        rightSlot={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-stone-400 hover:text-zinc-700 transition-colors cursor-pointer">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>}
                       />
                     )}
 
@@ -222,7 +222,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             icon={<Lock />}
                             state={confirmPassword.length > 0 ? (validations.match ? 'success' : 'error') : 'default'}
-                            rightSlot={<button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">{showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>}
+                            rightSlot={<button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-stone-400 hover:text-zinc-700 transition-colors cursor-pointer">{showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>}
                           />
                         </div>
                         {confirmPassword.length > 0 && !validations.match && <p className="text-red-500 text-xs mt-1 px-1">Hasła nie są identyczne.</p>}
@@ -231,13 +231,13 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
 
                     {initialMode === 'login' && (
                       <div className="flex justify-end pt-2">
-                        <button type="button" onClick={() => onSwitchMode('reset')} className="text-sm font-bold text-emerald-600 hover:text-emerald-700 hover:underline underline-offset-4 transition-colors cursor-pointer">
+                        <button type="button" onClick={() => onSwitchMode('reset')} className="text-sm font-medium text-zinc-700 hover:text-zinc-900 hover:underline underline-offset-4 transition-colors cursor-pointer">
                           Zapomniałeś hasła?
                         </button>
                       </div>
                     )}
 
-                    <Button type="submit" fullWidth isLoading={isLoading} className="mt-6 h-[52px]">
+                    <Button type="submit" fullWidth isLoading={isLoading} className="mt-6">
                       {initialMode === 'login' ? 'Zaloguj się' :
                        initialMode === 'register' ? 'Utwórz konto' :
                        'Wyślij link'}
@@ -246,13 +246,13 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
                 </motion.div>
               </AnimatePresence>
 
-              <div className="mt-6 text-center text-sm font-medium text-slate-600 border-t border-slate-100 pt-6">
+              <div className="mt-6 text-center text-sm text-stone-600 border-t border-stone-200 pt-6">
                 {initialMode === 'login' ? (
-                  <>Nie masz jeszcze konta? <button onClick={() => onSwitchMode('register')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer">Zarejestruj się</button></>
+                  <>Nie masz jeszcze konta? <button onClick={() => onSwitchMode('register')} className="text-zinc-900 hover:underline underline-offset-4 font-semibold cursor-pointer">Zarejestruj się</button></>
                 ) : initialMode === 'register' ? (
-                  <>Masz już konto? <button onClick={() => onSwitchMode('login')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer">Zaloguj się</button></>
+                  <>Masz już konto? <button onClick={() => onSwitchMode('login')} className="text-zinc-900 hover:underline underline-offset-4 font-semibold cursor-pointer">Zaloguj się</button></>
                 ) : (
-                  <button onClick={() => onSwitchMode('login')} className="text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer flex items-center justify-center gap-1.5 w-full">
+                  <button onClick={() => onSwitchMode('login')} className="text-zinc-900 hover:underline underline-offset-4 font-semibold cursor-pointer flex items-center justify-center gap-1.5 w-full">
                     <ArrowLeft className="w-4 h-4" /> Wróć do logowania
                   </button>
                 )}

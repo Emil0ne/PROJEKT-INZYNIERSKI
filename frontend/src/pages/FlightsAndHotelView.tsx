@@ -78,7 +78,7 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = DE
   const flightsAndHotels = customItems.filter(i => i.category === 'Loty' || i.category === 'Hotel');
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8 animate-fadeIn">
+    <div className="max-w-4xl mx-auto p-5 space-y-5">
 
       <Card padding="lg">
         <SectionHeader
@@ -90,11 +90,11 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = DE
         />
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
         <Card className="space-y-4">
-          <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-            <Plane className="w-4 h-4 text-emerald-500" /> Dodaj Lot
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+            <Plane className="w-4 h-4 text-stone-600" /> Dodaj Lot
           </h3>
           <form onSubmit={handleAddFlight} className="space-y-3 relative">
             <div className="relative">
@@ -110,9 +110,9 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = DE
                 placeholder="Skąd? (np. Warszawa-Okęcie)"
               />
               {fromResults.length > 0 && (
-                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200/80 rounded-xl shadow-xl ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
+                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-stone-200/80 rounded-lg shadow-sm ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
                   {fromResults.map((r) => (
-                    <button type="button" key={r.id} onClick={() => { setFlightFrom(r.displayName); setFromResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-emerald-50 cursor-pointer border-b border-slate-100 last:border-0 truncate transition-colors">
+                    <button type="button" key={r.id} onClick={() => { setFlightFrom(r.displayName); setFromResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-stone-100 cursor-pointer border-b border-stone-100 last:border-0 truncate transition-colors">
                       {r.displayName}
                     </button>
                   ))}
@@ -133,9 +133,9 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = DE
                 placeholder="Dokąd? (np. Katania)"
               />
               {toResults.length > 0 && (
-                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200/80 rounded-xl shadow-xl ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
+                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-stone-200/80 rounded-lg shadow-sm ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
                   {toResults.map((r) => (
-                    <button type="button" key={r.id} onClick={() => { setFlightTo(r.displayName); setToResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-emerald-50 cursor-pointer border-b border-slate-100 last:border-0 truncate transition-colors">
+                    <button type="button" key={r.id} onClick={() => { setFlightTo(r.displayName); setToResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-stone-100 cursor-pointer border-b border-stone-100 last:border-0 truncate transition-colors">
                       {r.displayName}
                     </button>
                   ))}
@@ -158,8 +158,8 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = DE
         </Card>
 
         <Card className="space-y-4">
-          <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-            <Hotel className="w-4 h-4 text-emerald-500" /> Dodaj Nocleg / Hotel
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+            <Hotel className="w-4 h-4 text-stone-600" /> Dodaj Nocleg / Hotel
           </h3>
           <form onSubmit={handleAddHotel} className="space-y-3">
             <Input
@@ -187,25 +187,25 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = DE
       </div>
 
       <Card className="space-y-4">
-        <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-          <Plane className="w-4 h-4 text-emerald-500" /> Twoje rezerwacje lotów i hoteli
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-2">
+          <Plane className="w-4 h-4 text-stone-600" /> Twoje rezerwacje lotów i hoteli
         </h3>
 
-        <div className="space-y-3">
+        <div className="divide-y divide-stone-200 border-y border-stone-200">
           {flightsAndHotels.length > 0 ? (
             flightsAndHotels.map(item => (
-              <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 hover:bg-slate-50 transition-colors">
+              <div key={item.id} className="flex items-center justify-between gap-3 px-1 py-3 hover:bg-stone-50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600">
+                  <div className="bg-stone-100 p-2.5 rounded-lg text-stone-600">
                     {item.category === 'Loty' ? <Plane className="w-4 h-4" /> : <Hotel className="w-4 h-4" />}
                   </div>
                   <div>
-                    <div className="font-bold text-slate-900 text-sm">{item.title}</div>
-                    <div className="text-xs text-slate-400 uppercase font-bold">{item.category}</div>
+                    <div className="font-medium text-zinc-900 text-sm">{item.title}</div>
+                    <div className="text-xs text-stone-500 uppercase font-semibold tracking-wider">{item.category}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-black text-slate-900 text-sm">{item.cost} {currency}</span>
+                  <span className="font-semibold text-zinc-900 text-sm">{item.cost} {currency}</span>
                   <IconButton label="Usuń rezerwację" variant="danger" onClick={() => removeItem(item.id)}>
                     <Trash2 className="w-4 h-4" />
                   </IconButton>

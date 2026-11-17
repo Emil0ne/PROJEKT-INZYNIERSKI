@@ -18,26 +18,30 @@ interface SectionHeaderProps {
   className?: string;
 }
 
-const TITLE = { sm: 'text-2xl font-black mb-0', md: 'text-3xl font-extrabold mb-4', lg: 'text-4xl lg:text-5xl font-extrabold mb-6' } as const;
-const DESC = { sm: 'text-sm mt-1', md: 'text-lg', lg: 'text-xl' } as const;
+const TITLE = {
+  sm: 'text-lg font-semibold mb-0',
+  md: 'text-2xl font-semibold mb-3',
+  lg: 'text-3xl lg:text-4xl font-semibold mb-4',
+} as const;
+const DESC = { sm: 'text-sm mt-1', md: 'text-base', lg: 'text-lg' } as const;
 
 export function SectionHeader({
   title, description, eyebrow, icon, action, align = 'center', size = 'md', bordered = false, className,
 }: SectionHeaderProps) {
   const text = (
     <div className={cx(align === 'center' && !action ? 'text-center mx-auto max-w-3xl' : 'text-left')}>
-      {eyebrow && <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-600 mb-3">{eyebrow}</p>}
-      <h2 className={cx('text-slate-900 flex items-center gap-3', align === 'center' && !action && 'justify-center', TITLE[size])}>
-        {icon && <span className="text-emerald-500 [&>svg]:w-6 [&>svg]:h-6">{icon}</span>}
+      {eyebrow && <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-2">{eyebrow}</p>}
+      <h2 className={cx('text-zinc-900 tracking-tight flex items-center gap-2.5', align === 'center' && !action && 'justify-center', TITLE[size])}>
+        {icon && <span className="text-emerald-600 [&>svg]:w-5 [&>svg]:h-5">{icon}</span>}
         {title}
       </h2>
-      {description && <p className={cx('text-slate-500', DESC[size])}>{description}</p>}
+      {description && <p className={cx('text-stone-600', DESC[size])}>{description}</p>}
     </div>
   );
 
   if (!action && !bordered) return <div className={className}>{text}</div>;
   return (
-    <div className={cx('flex items-end justify-between gap-4', bordered && 'border-b border-slate-200/80 pb-4', className)}>
+    <div className={cx('flex items-end justify-between gap-4', bordered && 'border-b border-stone-200 pb-4', className)}>
       {text}
       {action}
     </div>

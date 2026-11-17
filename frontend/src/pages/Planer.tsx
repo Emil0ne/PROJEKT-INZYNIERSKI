@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, Navigate } from 'react-router-dom';
-import { Wallet, MapPin, Search, Plus, Clock, ListTodo, Map as MapIcon, Check, Trash2, Loader2, Edit3, Save, X, Plane, ChevronRight, ChevronLeft, GripVertical, Palette } from 'lucide-react';
+import { MapPin, Search, Loader2, ChevronRight, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // DND-KIT IMPORTS
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
+import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 
 import { TravelMap } from '../components/TravelMap';
 import { AppHeader } from '../components/AppHeader';
-import { Button, Card, EmptyState, IconButton, Input } from '../components/ui';
+import { PlanerSidebar } from '../components/planer/PlanerSidebar';
+import { DayScheduleView, type ScheduleItemChanges } from '../components/planer/DayScheduleView';
+import { PackingView } from '../components/planer/PackingView';
+import { Input } from '../components/ui';
 import { LAYER } from '../lib/layers';
 import { OverviewView } from './OverviewView';
 import { BudgetView } from './BudgetView';
@@ -22,168 +24,6 @@ import { biasDeltaForZoom, geocodeAddress, reverseGeocode, searchPlaces, zoomFor
 import type { BudgetItem } from '../types/budget';
 import type { ClickedPoint, GeocodedPlace, Place } from '../types/place';
 import type { PackingItem, ScheduleItem, TripDay } from '../types/trip';
-
-interface SortableScheduleItemProps {
-  item: ScheduleItem;
-  isLast: boolean;
-  editingItemId: string | null;
-  editTitle: string;
-  editTime: string;
-  editCost: number;
-  setEditTitle: (value: string) => void;
-  setEditTime: (value: string) => void;
-  setEditCost: (value: number) => void;
-  startEditingItem: (item: ScheduleItem) => void;
-  saveEditingItem: (dayId: string, itemId: string) => void;
-  deleteScheduleItem: (dayId: string, itemId: string) => void;
-  setEditingItemId: (id: string | null) => void;
-  dayId: string;
-  onFocusOnMap: (lat: number, lng: number) => void;
-  currency: string;
-}
-
-function SortableScheduleItem(props: SortableScheduleItemProps) {
-  const { currency, item, isLast, editingItemId, editTitle, editTime, editCost, setEditTitle, setEditTime, setEditCost, startEditingItem, saveEditingItem, deleteScheduleItem, setEditingItemId, dayId, onFocusOnMap } = props;
-  
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 1 };
-
-  return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      onClick={() => {
-        if (editingItemId !== item.id) {
-          onFocusOnMap(item.lat, item.lng);
-        }
-      }}
-      className={`bg-white border p-4 rounded-2xl transition-all group relative flex items-start gap-1 z-10 cursor-pointer select-none ${isDragging ? 'shadow-2xl scale-[1.02] border-emerald-400 opacity-95' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-300'}`}
-    >
-      
-      {!isLast && <div className="absolute left-[34px] top-14 bottom-[-16px] w-0.5 bg-slate-200 z-0"></div>}
-      
-      {/* Uchwyt do przeciągania */}
-      <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-emerald-500 rounded-lg outline-none z-10 shrink-0 mt-0.5" title="Przeciągnij" aria-label="Przeciągnij pozycję">
-        <GripVertical className="w-5 h-5" />
-      </div>
-
-      <div className="flex-1 w-full relative z-10">
-        {editingItemId === item.id ? (
-          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-            <div className="flex gap-3">
-              <input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Nazwa miejsca" className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            </div>
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">Koszt ({currency}):</span>
-                <input type="number" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => saveEditingItem(dayId, item.id)} className="text-xs"><Save className="w-3.5 h-3.5" /> Zapisz</Button>
-                <IconButton label="Anuluj edycję" onClick={() => setEditingItemId(null)} className="p-2"><X className="w-4 h-4" /></IconButton>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-start gap-4">
-            <div className="w-14 text-right shrink-0 pt-0.5">
-              <span className="text-sm font-black text-slate-800">{item.time}</span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-start justify-between">
-                <h3 className="font-bold text-slate-900 leading-tight pr-4">{item.title}</h3>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <IconButton label="Edytuj" onClick={(e) => { e.stopPropagation(); startEditingItem(item); }}><Edit3 className="w-4 h-4" /></IconButton>
-                  <IconButton label="Usuń" variant="danger" onClick={(e) => { e.stopPropagation(); deleteScheduleItem(dayId, item.id); }}><Trash2 className="w-4 h-4" /></IconButton>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 mt-3 text-xs font-bold text-slate-500">
-                {item.cost > 0 && <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md"><Wallet className="w-3 h-3 text-slate-400" /> {item.cost} {currency}</span>}
-                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md"><Clock className="w-3 h-3 text-slate-400" /> 2h</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// --- KOMPONENT SORTOWALNEGO DNIA W PANELU BOCZNYM ---
-interface SortableDayItemProps {
-  day: TripDay;
-  activeSection: string;
-  setActiveSection: (id: string) => void;
-  setIsEditingDayTitle: (value: boolean) => void;
-  onFocusOnMap: (lat: number, lng: number) => void;
-}
-
-function SortableDayItem(props: SortableDayItemProps) {
-  const { day, activeSection, setActiveSection, setIsEditingDayTitle, onFocusOnMap } = props;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 1 };
-
-  const dayName = day.customTitle ? day.customTitle : `Dzień ${day.dayNumber}`;
-  const isActive = activeSection === day.id;
-
-  const isHex = day.color && day.color.startsWith('#');
-  const dotStyle = isHex ? { backgroundColor: isActive ? '#ffffff' : day.color } : {};
-  const dotClassName = isHex 
-    ? "w-3 h-3 rounded-full shrink-0" 
-    : `w-3 h-3 rounded-full ${isActive ? 'bg-white' : (day.color || 'bg-emerald-500')} shrink-0`;
-  
-  const subDotStyle = isHex ? { backgroundColor: day.color } : {};
-  const subDotClassName = isHex ? "w-1.5 h-1.5 rounded-full shrink-0" : `w-1.5 h-1.5 rounded-full ${day.color || 'bg-emerald-500'} shrink-0`;
-
-  const activeBgStyle = isActive ? (isHex ? { backgroundColor: day.color } : {}) : {};
-  const activeBgClass = isActive 
-    ? (isHex ? 'text-white shadow-sm' : `${day.color} text-white shadow-sm`)
-    : 'text-slate-600 hover:bg-slate-200/50';
-
-  return (
-    <div ref={setNodeRef} style={style} className={`rounded-xl transition-colors ${isDragging ? 'opacity-50 bg-slate-200' : ''}`}>
-      <div 
-        style={activeBgStyle} 
-        onClick={() => { setActiveSection(day.id); setIsEditingDayTitle(false); }}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer select-none ${activeBgClass}`}
-      >
-        <div className="flex items-center gap-3 truncate pr-2 flex-1 text-left">
-          <span style={dotStyle} className={dotClassName}></span>
-          <span className="truncate">{dayName}</span>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`text-[10px] font-black ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
-            {day.date.split('-').slice(1).join('.')}
-          </span>
-          <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-emerald-500 rounded outline-none" title="Przesuń dzień" aria-label={`Przesuń dzień: ${dayName}`}>
-            <GripVertical className="w-4 h-4" />
-          </div>
-        </div>
-      </div>
-
-      {/* PODKATEGORIE: Atrakcje w lewym panelu */}
-      {day.items.length > 0 && (
-        <div className="pl-7 pr-2 py-1 space-y-1">
-          {day.items.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { 
-                setActiveSection(day.id); 
-                onFocusOnMap(item.lat, item.lng);
-              }}
-              className="w-full text-left text-xs font-medium text-slate-500 hover:text-slate-900 truncate py-1 px-2 rounded hover:bg-slate-200/60 transition-colors flex items-center gap-2 cursor-pointer select-none"
-            >
-              <span style={subDotStyle} className={subDotClassName}></span>
-              <span className="truncate">{item.time} - {item.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // --- GŁÓWNY KOMPONENT ---
 export function Planer() {
@@ -228,15 +68,6 @@ export function Planer() {
   const [totalBudget, setTotalBudget] = useState<number>(trip?.budget ?? DEFAULT_TOTAL_BUDGET);
   const [customBudgetItems, setCustomBudgetItems] = useState<BudgetItem[]>(DEFAULT_BUDGET_ITEMS);
 
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editTime, setEditTime] = useState('');
-  const [editCost, setEditCost] = useState(0);
-
-  const [isEditingDayTitle, setIsEditingDayTitle] = useState(false);
-  const [dayCustomTitleInput, setDayCustomTitleInput] = useState('');
-
-  const [newItemText, setNewItemText] = useState('');
   const [packingItems, setPackingItems] = useState<PackingItem[]>(DEFAULT_PACKING_ITEMS);
 
   const isScheduleMode = activeSection.startsWith('d');
@@ -246,13 +77,64 @@ export function Planer() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Aktualnie przeciągana atrakcja (null, gdy przeciągamy dzień lub nic) + dzień-cel upuszczenia
+  const [draggedItem, setDraggedItem] = useState<{ item: ScheduleItem; dayId: string } | null>(null);
+  const [dropTargetDayId, setDropTargetDayId] = useState<string | null>(null);
+
+  const moveScheduleItem = (fromDayId: string, itemId: string, toDayId: string) => {
+    if (fromDayId === toDayId) return;
+    setTripDays(prevDays => {
+      const item = prevDays.find(d => d.id === fromDayId)?.items.find(i => i.id === itemId);
+      if (!item || !prevDays.some(d => d.id === toDayId)) return prevDays;
+      return prevDays.map(day => {
+        if (day.id === fromDayId) return { ...day, items: day.items.filter(i => i.id !== itemId) };
+        if (day.id === toDayId) return { ...day, items: [...day.items, item] };
+        return day;
+      });
+    });
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current;
+    if (data?.type === 'item') {
+      const dayId = String(data.dayId);
+      const item = tripDays.find(d => d.id === dayId)?.items.find(i => i.id === event.active.id);
+      setDraggedItem(item ? { item, dayId } : null);
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (active.data.current?.type !== 'item') return;
+    const isValidTarget = over?.data.current?.type === 'day' && over.id !== active.data.current.dayId;
+    setDropTargetDayId(isValidTarget && over ? String(over.id) : null);
+  };
+
+  const handleDragCancel = () => {
+    setDraggedItem(null);
+    setDropTargetDayId(null);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setDraggedItem(null);
+    setDropTargetDayId(null);
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
+    const activeType = active.data.current?.type;
+    const overType = over.data.current?.type;
 
-    if (activeId.startsWith('d') && overId.startsWith('d')) {
+    // Atrakcja upuszczona na dzień w panelu bocznym → przenieś na koniec tego dnia
+    if (activeType === 'item' && overType === 'day') {
+      moveScheduleItem(String(active.data.current?.dayId), activeId, overId);
+      return;
+    }
+
+    // Dzień przeciągnięty nad atrakcję (lub odwrotnie) – ignorujemy
+    if (activeType !== overType) return;
+
+    if (activeType === 'day') {
       if (activeId !== overId) {
         setTripDays((items) => {
           const oldIndex = items.findIndex(d => d.id === activeId);
@@ -376,24 +258,16 @@ export function Planer() {
     }
   };
 
-  const startEditingItem = (item: ScheduleItem) => {
-    setEditingItemId(item.id);
-    setEditTitle(item.title);
-    setEditTime(item.time);
-    setEditCost(item.cost || 0);
-  };
-
-  const saveEditingItem = (dayId: string, itemId: string) => {
+  const updateScheduleItem = (dayId: string, itemId: string, changes: ScheduleItemChanges) => {
     setTripDays(prevDays => prevDays.map(day => {
       if (day.id === dayId) {
         return {
           ...day,
-          items: day.items.map(item => item.id === itemId ? { ...item, title: editTitle, time: editTime, cost: Number(editCost) } : item)
+          items: day.items.map(item => item.id === itemId ? { ...item, ...changes } : item)
         };
       }
       return day;
     }));
-    setEditingItemId(null);
   };
 
   const deleteScheduleItem = (dayId: string, itemId: string) => {
@@ -405,14 +279,8 @@ export function Planer() {
     }));
   };
 
-  const saveDayCustomTitle = (dayId: string) => {
-    setTripDays(prevDays => prevDays.map(day => {
-      if (day.id === dayId) {
-        return { ...day, customTitle: dayCustomTitleInput.trim() };
-      }
-      return day;
-    }));
-    setIsEditingDayTitle(false);
+  const renameDay = (dayId: string, title: string) => {
+    setTripDays(prevDays => prevDays.map(day => day.id === dayId ? { ...day, customTitle: title } : day));
   };
 
   const changeDayColor = (dayId: string, color: string) => {
@@ -425,13 +293,8 @@ export function Planer() {
   };
 
   const togglePackingItem = (id: string) => setPackingItems(items => items.map(item => item.id === id ? { ...item, packed: !item.packed } : item));
-  const deletePackingItem = (id: string, e: React.MouseEvent) => { e.stopPropagation(); setPackingItems(items => items.filter(item => item.id !== id)); };
-  const addPackingItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItemText.trim()) return;
-    setPackingItems([...packingItems, { id: String(Date.now()), text: newItemText, packed: false }]);
-    setNewItemText('');
-  };
+  const deletePackingItem = (id: string) => setPackingItems(items => items.filter(item => item.id !== id));
+  const addPackingItem = (text: string) => setPackingItems(items => [...items, { id: String(Date.now()), text, packed: false }]);
 
   // ZBIERAMY WSZYSTKIE PINEZKI ZE WSZYSTKICH DNI DO WYŚWIETLENIA NA MAPIE
   const allMapPlaces: Place[] = tripDays.flatMap(day =>
@@ -458,95 +321,66 @@ export function Planer() {
     }
   };
 
-  // Style inline dla nagłówka dnia, jeśli kolor jest w formacie HEX
-  const isCurrentDayHex = currentDay?.color && currentDay.color.startsWith('#');
-  const currentDayDotStyle = isCurrentDayHex ? { backgroundColor: currentDay.color } : {};
-  const currentDayDotClass = isCurrentDayHex ? "w-4 h-4 rounded-full shrink-0" : `w-4 h-4 rounded-full ${currentDay?.color || 'bg-emerald-500'} shrink-0`;
-
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden font-sans text-slate-900">
+    <div className="h-screen flex flex-col bg-[#FAF9F6] overflow-hidden font-sans text-zinc-900">
       
       <AppHeader
         layout="workspace"
         backTo="/dashboard"
         title={tripTitle}
-        subtitle={<span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-emerald-500" /> {tripDestination}</span>}
+        subtitle={<span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-emerald-600" /> {tripDestination}</span>}
       />
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="flex-1 flex overflow-hidden relative">
-          
-          {/* SIDEBAR */}
-          <div className="w-64 bg-slate-50 border-r border-slate-200 flex flex-col h-full shrink-0 overflow-y-auto z-20">
-            <div className="p-4 space-y-6">
-              <div>
-                <h3 className="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-2 px-3">Ogólne</h3>
-                <div className="space-y-1">
-                  <button onClick={() => setActiveSection('overview')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer select-none ${activeSection === 'overview' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-600 hover:bg-slate-200/50'}`}>
-                    <MapIcon className="w-4 h-4" /> Przegląd wyjazdu
-                  </button>
-                  <button onClick={() => setActiveSection('flights-hotel')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer select-none ${activeSection === 'flights-hotel' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-600 hover:bg-slate-200/50'}`}>
-                    <Plane className="w-4 h-4" /> Loty i nocleg
-                  </button>
-                  <button onClick={() => setActiveSection('budget')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer select-none ${activeSection === 'budget' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-600 hover:bg-slate-200/50'}`}>
-                    <Wallet className="w-4 h-4" /> Budżet
-                  </button>
-                  <button onClick={() => setActiveSection('packing')} className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer select-none ${activeSection === 'packing' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-600 hover:bg-slate-200/50'}`}>
-                    <ListTodo className="w-4 h-4" /> Lista rzeczy
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-2 px-3">Harmonogram</h3>
-                <SortableContext items={tripDays.map(d => d.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-1">
-                    {tripDays.map((day) => (
-                      <SortableDayItem 
-                        key={day.id}
-                        day={day}
-                        activeSection={activeSection}
-                        setActiveSection={setActiveSection}
-                        setIsEditingDayTitle={setIsEditingDayTitle}
-                        onFocusOnMap={handleFocusOnMap}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+        {/* Overlay, bo oś czasu ma overflow i przycięłaby przeciąganą kartę nad panelem bocznym */}
+        <DragOverlay dropAnimation={null}>
+          {draggedItem && (
+            <div className="px-3 py-2 rounded-lg bg-white shadow-lg border border-stone-300 text-sm cursor-grabbing">
+              <div className="font-medium text-zinc-900">{draggedItem.item.title}</div>
+              <div className="text-xs text-stone-500 tabular-nums">{draggedItem.item.time}</div>
             </div>
-          </div>
+          )}
+        </DragOverlay>
+        <div className="flex-1 flex overflow-hidden relative">
 
-          <div className="flex-1 bg-white flex flex-col h-full min-w-[400px] relative z-20 shadow-[10px_0_15px_-3px_rgba(0,0,0,0.05)] overflow-x-hidden">
+          <PlanerSidebar
+            dropTargetDayId={dropTargetDayId}
+            isDraggingItem={!!draggedItem}
+            tripDays={tripDays}
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            onFocusOnMap={handleFocusOnMap}
+          />
+
+          <div className="flex-1 bg-[#FAF9F6] flex flex-col h-full min-w-[400px] relative z-20 overflow-x-hidden">
             <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden relative">
               {isScheduleMode && (
-                <div className="p-4 border-b border-slate-100 bg-white shadow-sm shrink-0 relative">
+                <div className="p-3 border-b border-stone-200 bg-white shrink-0 relative">
                   <Input
                     type="text"
                     aria-label="Szukaj miejsc"
-                    icon={isSearching ? <Loader2 className="text-emerald-500 animate-spin" /> : <Search />}
+                    icon={isSearching ? <Loader2 className="text-stone-500 animate-spin" /> : <Search />}
                     value={placeQuery}
                     onChange={(e) => handleSearchPlace(e.target.value)}
                     placeholder="Szukaj miejsc lub dodawaj je klikając na mapie..."
-                    className="font-medium"
                   />
 
                   {placeResults.length > 0 && placeQuery.trim() !== '' && (
-                    <div className={`absolute top-full left-4 right-4 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden max-h-[300px] overflow-y-auto ${LAYER.dropdown}`}>
+                    <div className={`absolute top-full left-3 right-3 mt-1 bg-white rounded-lg shadow-md border border-stone-200 overflow-hidden max-h-[300px] overflow-y-auto ${LAYER.dropdown}`}>
                       {placeResults.map((place) => (
                         <button
                           key={place.id}
                           onClick={() => handleAddPlaceFromSearch(place)}
-                          className="w-full text-left px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors flex items-start gap-3 group cursor-pointer"
+                          className="w-full text-left px-4 py-3 border-b border-stone-100 last:border-0 hover:bg-stone-50 transition-colors flex items-start gap-3 group cursor-pointer"
                         >
-                          <div className="bg-slate-100 p-2 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors mt-0.5 shrink-0">
+                          <div className="bg-stone-100 p-1.5 rounded-md text-stone-500 group-hover:text-emerald-600 transition-colors mt-0.5 shrink-0">
                             <MapPin className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="font-bold text-slate-900 text-sm">
+                            <div className="font-medium text-zinc-900 text-sm">
                               {place.name}
                             </div>
-                            <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                            <div className="text-xs text-stone-500 mt-0.5 line-clamp-1">
                               {place.displayName}
                             </div>
                           </div>
@@ -557,7 +391,7 @@ export function Planer() {
                 </div>
               )}
 
-              <div className="flex-1 p-6 bg-slate-50/50">
+              <div className="flex-1 p-5">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeSection}
@@ -586,97 +420,20 @@ export function Planer() {
                     ) : activeSection === 'budget' ? (
                       <BudgetView tripId={trip?.id} currency={currency} budget={totalBudget} setBudget={setTotalBudget} customItems={customBudgetItems} setCustomItems={setCustomBudgetItems} scheduleItems={tripDays.flatMap(day => day.items)} />
                     ) : activeSection === 'packing' ? (
-                      <Card padding="lg" className="max-w-3xl mx-auto">
-                        <div className="mb-8">
-                          <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><ListTodo className="w-6 h-6 text-emerald-500" /> Co spakować?</h2>
-                        </div>
-                        <div className="space-y-3 mb-6">
-                          {packingItems.map(item => (
-                            <div key={item.id} onClick={() => togglePackingItem(item.id)} className={`flex items-center justify-between gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${item.packed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300 hover:shadow-sm'}`}>
-                              <div className="flex items-center gap-4">
-                                <button type="button" aria-label={item.packed ? `Odznacz: ${item.text}` : `Zaznacz jako spakowane: ${item.text}`} aria-pressed={item.packed} className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 transition-colors cursor-pointer ${item.packed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
-                                  {item.packed && <Check className="w-3.5 h-3.5 text-white" />}
-                                </button>
-                                <span className={`font-bold text-sm ${item.packed ? 'line-through text-slate-400' : 'text-slate-800'}`}>{item.text}</span>
-                              </div>
-                              <IconButton label="Usuń pozycję" variant="danger" onClick={(e) => deletePackingItem(item.id, e)} className="p-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"><Trash2 className="w-4 h-4" /></IconButton>
-                            </div>
-                          ))}
-                        </div>
-                        <form onSubmit={addPackingItem}>
-                          <Input type="text" aria-label="Nowa rzecz do spakowania" icon={<Plus />} value={newItemText} onChange={(e) => setNewItemText(e.target.value)} placeholder="Dodaj kolejną rzecz..." className="py-3.5 font-medium" />
-                        </form>
-                      </Card>
+                      <PackingView items={packingItems} onToggle={togglePackingItem} onDelete={deletePackingItem} onAdd={addPackingItem} />
                     ) : activeSection.startsWith('d') && currentDay ? (
-                      <div className="max-w-3xl mx-auto">
-                        
-                        <div className="mb-6 flex items-start justify-between">
-                          <div>
-                            {isEditingDayTitle ? (
-                              <div className="flex items-center gap-2 mb-1">
-                                <input type="text" value={dayCustomTitleInput} onChange={(e) => setDayCustomTitleInput(e.target.value)} placeholder={`np. Dzień ${currentDay.dayNumber}: Przylot`} className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xl font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" autoFocus />
-                                <Button aria-label="Zapisz nazwę dnia" title="Zapisz nazwę dnia" onClick={() => saveDayCustomTitle(currentDay.id)} className="!p-2"><Save className="w-4 h-4" /></Button>
-                                <Button variant="secondary" aria-label="Anuluj edycję nazwy dnia" title="Anuluj" onClick={() => setIsEditingDayTitle(false)} className="!p-2"><X className="w-4 h-4" /></Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-3 group/title">
-                                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                                  <span style={currentDayDotStyle} className={currentDayDotClass}></span>
-                                  {currentDay.customTitle ? currentDay.customTitle : `Dzień ${currentDay.dayNumber}`}
-                                </h2>
-                                <IconButton label="Edytuj nazwę dnia" onClick={() => { setDayCustomTitleInput(currentDay.customTitle || `Dzień ${currentDay.dayNumber}`); setIsEditingDayTitle(true); }} className="opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100"><Edit3 className="w-4 h-4" /></IconButton>
-                              </div>
-                            )}
-                            <p className="text-slate-500 font-medium text-sm mt-0.5">{currentDay.date}</p>
-                          </div>
-
-                          {/* WYBÓR KOLORU PINEZKI */}
-                          <div className="flex items-center gap-2.5 bg-white border border-slate-200 px-3.5 py-2 rounded-2xl shadow-sm">
-                            <Palette className="w-4 h-4 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-600">Kolor pinezki:</span>
-                            <input 
-                              type="color" 
-                              value={isCurrentDayHex ? currentDay.color : '#10b981'}
-                              onChange={(e) => changeDayColor(currentDay.id, e.target.value)}
-                              className="w-7 h-7 rounded-xl border-0 cursor-pointer bg-transparent shadow-sm"
-                              title="Wybierz kolor pinezki dla tego dnia"
-                            />
-                          </div>
-                        </div>
-
-                        {/* LISTA KAFELKÓW W AKTUALNYM DNIU */}
-                        <SortableContext items={currentDay.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                          <div className="space-y-4">
-                            {currentDay.items.length > 0 ? currentDay.items.map((item, index) => (
-                              <SortableScheduleItem 
-                                key={item.id}
-                                item={item}
-                                isLast={index === currentDay.items.length - 1}
-                                editingItemId={editingItemId}
-                                editTitle={editTitle}
-                                editTime={editTime}
-                                editCost={editCost}
-                                setEditTitle={setEditTitle}
-                                setEditTime={setEditTime}
-                                setEditCost={setEditCost}
-                                startEditingItem={startEditingItem}
-                                saveEditingItem={saveEditingItem}
-                                deleteScheduleItem={deleteScheduleItem}
-                                setEditingItemId={setEditingItemId}
-                                dayId={currentDay.id}
-                                onFocusOnMap={handleFocusOnMap}
-                                currency={currency}
-                              />
-                            )) : (
-                              <EmptyState
-                                icon={<MapPin />}
-                                title="Twój dzień jest pusty"
-                                description="Użyj wyszukiwarki lub kliknij w dowolne miejsce na mapie."
-                              />
-                            )}
-                          </div>
-                        </SortableContext>
-                      </div>
+                      <DayScheduleView
+                        key={currentDay.id}
+                        day={currentDay}
+                        otherDays={tripDays.filter(d => d.id !== currentDay.id).map(d => ({ id: d.id, label: `${d.customTitle || `Dzień ${d.dayNumber}`} (${d.date})` }))}
+                        onMoveItem={moveScheduleItem}
+                        currency={currency}
+                        onFocusOnMap={handleFocusOnMap}
+                        onUpdateItem={updateScheduleItem}
+                        onDeleteItem={deleteScheduleItem}
+                        onRenameDay={renameDay}
+                        onChangeColor={changeDayColor}
+                      />
                     ) : null}
                   </motion.div>
                 </AnimatePresence>
@@ -684,7 +441,7 @@ export function Planer() {
             </div>
 
             {isScheduleMode && (
-              <button onClick={() => setIsMapVisible(!isMapVisible)} aria-label={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"} className={`absolute right-[-14px] top-1/2 -translate-y-1/2 ${LAYER.floating} bg-white border border-slate-200/80 shadow-[0_4px_10px_rgba(0,0,0,0.1)] p-1.5 rounded-full text-slate-400 hover:text-emerald-500 hover:scale-110 transition-all cursor-pointer`} title={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"}>
+              <button onClick={() => setIsMapVisible(!isMapVisible)} aria-label={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"} className={`absolute right-[-14px] top-1/2 -translate-y-1/2 ${LAYER.floating} bg-white border border-stone-200 shadow-sm p-1.5 rounded-full text-stone-500 hover:text-zinc-900 hover:border-stone-300 transition-colors cursor-pointer`} title={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"}>
                 {isMapVisible ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
               </button>
             )}
@@ -692,8 +449,8 @@ export function Planer() {
 
           <AnimatePresence initial={false}>
             {isScheduleMode && isMapVisible && (
-              <motion.div initial={{ width: 0, minWidth: 0, opacity: 0 }} animate={{ width: '35%', minWidth: '350px', opacity: 1 }} exit={{ width: 0, minWidth: 0, opacity: 0 }} transition={{ duration: 0.3, ease: "easeInOut" }} className="border-l border-slate-200 relative bg-slate-200 shrink-0 z-10 overflow-hidden h-full flex flex-col">
-                <div className="w-full h-full min-w-[350px]">
+              <motion.div initial={{ width: 0, minWidth: 0, opacity: 0 }} animate={{ width: '45%', minWidth: '380px', opacity: 1 }} exit={{ width: 0, minWidth: 0, opacity: 0 }} transition={{ duration: 0.3, ease: "easeInOut" }} className="border-l border-stone-200 relative bg-stone-200 shrink-0 z-10 overflow-hidden h-full flex flex-col">
+                <div className="w-full h-full min-w-[380px]">
                   <TravelMap 
                     places={allMapPlaces} 
                     visitedPlaces={[]} 

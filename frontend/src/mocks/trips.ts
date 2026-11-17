@@ -11,7 +11,7 @@ export const SICILY_TRIP: Trip = {
   endDate: '2026-05-29',
   status: 'upcoming',
   imageUrl:
-    'https://images.unsplash.com/photo-1516483638261-f408892288c6?auto=format&fit=crop&w=800&q=80',
+    'https://commons.wikimedia.org/wiki/Special:FilePath/Taormina_Teatro_Greco.jpg?width=800',
   lat: 37.5999,
   lng: 14.0154,
   zoom: 8,

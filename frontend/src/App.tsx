@@ -34,7 +34,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 overflow-x-hidden flex flex-col">
+      <div className="min-h-screen bg-[#FAF9F6] font-sans text-zinc-900 overflow-x-hidden flex flex-col">
         <Layout onOpenAuth={openAuth}>
           <Routes>
             <Route path="/" element={<Home onOpenAuth={openAuth} />} />
