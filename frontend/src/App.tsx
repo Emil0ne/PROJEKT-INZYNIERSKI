@@ -9,7 +9,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Planer } from './pages/Planer'; // <--- IMPORT PLANERA
 
 // Pomocniczy komponent do warunkowego renderowania Nav/Footer
-function Layout({ children, onOpenAuth }: { children: React.ReactNode, onOpenAuth: any }) {
+function Layout({ children, onOpenAuth }: { children: React.ReactNode, onOpenAuth: (mode: 'login' | 'register') => void }) {
   const location = useLocation();
   // Ukrywamy globalny Nav i Footer dla Dashboardu i Planera
   const isAppView = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/planer');

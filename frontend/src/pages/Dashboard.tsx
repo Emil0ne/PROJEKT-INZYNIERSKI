@@ -1,52 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Plus, LogOut, Globe2, Trophy, Search, X, MoreHorizontal, Trash2, Sparkles, Map as MapIcon, Calendar, Loader2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { MapPin, Plus, Trophy, Search, X, MoreHorizontal, Trash2, Sparkles, Map as MapIcon, Calendar, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AppHeader } from '../components/AppHeader';
 import { Footer } from '../components/Footer';
-import { TravelMap } from '../components/TravelMap'; 
-
-const INITIAL_TRIPS = [
-  {
-    id: '1',
-    title: 'Włoskie Wakacje',
-    location: 'Sycylia, Włochy',
-    startDate: '2026-05-25',
-    endDate: '2026-05-29',
-    days: 5,
-    status: 'upcoming',
-    imageUrl: 'https://images.unsplash.com/photo-1516483638261-f408892288c6?auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: '2',
-    title: 'Mecz Chelsea',
-    location: 'Londyn, UK',
-    startDate: '2027-04-10', 
-    endDate: '2027-04-12',
-    days: 3,
-    status: 'upcoming',
-    imageUrl: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=800&q=80'
-  }
-];
-
-const getDaysUntil = (startDate: string) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  
-  const diffTime = start.getTime() - today.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) return 'Dzisiaj';
-  if (diffDays === 1) return 'Jutro';
-  if (diffDays < 0) return 'Zakończona';
-  return `Za ${diffDays} dni`;
-};
+import { TravelMap } from '../components/TravelMap';
+import { Button, Card, EmptyState, IconButton, Input, SectionHeader } from '../components/ui';
+import { LAYER } from '../lib/layers';
+import { MOCK_TRIPS, VISITED_PLACES } from '../mocks/trips';
+import { getDaysUntil } from '../lib/dates';
+import { searchCities } from '../lib/geocoding';
+import type { GeocodedPlace, Place } from '../types/place';
+import type { TripSummary } from '../types/trip';
 
 export function Dashboard() {
   const navigate = useNavigate();
   
-  const [trips, setTrips] = useState(INITIAL_TRIPS);
+  const [trips, setTrips] = useState<TripSummary[]>(MOCK_TRIPS);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -54,11 +24,11 @@ export function Dashboard() {
   
   // Stan dla modala nowej podróży (OpenStreetMap API)
   const [planDestination, setPlanDestination] = useState('');
-  const [modalSearchResults, setModalSearchResults] = useState<any[]>([]);
+  const [modalSearchResults, setModalSearchResults] = useState<GeocodedPlace[]>([]);
   const [isModalSearching, setIsModalSearching] = useState(false);
   const [showDestinations, setShowDestinations] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [selectedPlace, setSelectedPlace] = useState<any | null>(null); // miejsce wybrane z listy podpowiedzi
+  const [selectedPlace, setSelectedPlace] = useState<GeocodedPlace | null>(null); // miejsce wybrane z listy podpowiedzi
   const modalSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestId = useRef(0); // chroni przed spóźnionymi odpowiedziami
 
@@ -66,10 +36,7 @@ export function Dashboard() {
   const [planEndDate, setPlanEndDate] = useState('');
   const [planError, setPlanError] = useState('');
   
-  const [visitedPlaces, setVisitedPlaces] = useState([
-    { id: 'v1', name: 'Londyn', region: 'UK', type: 'City', displayName: 'Londyn, UK', lat: 51.5074, lng: -0.1278 },
-    { id: 'v2', name: 'Wrocław', region: 'Województwo dolnośląskie, Polska', type: 'City', displayName: 'Wrocław, Polska', lat: 51.1079, lng: 17.0385 }
-  ]);
+  const [visitedPlaces, setVisitedPlaces] = useState<Place[]>(VISITED_PLACES);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const startDateRef = useRef<HTMLInputElement>(null);
@@ -86,7 +53,15 @@ export function Dashboard() {
     })
   ).size;
 
-  const handleLogout = () => navigate('/');
+  // Zamyka modal nowej podróży i czyści jego formularz
+  const closePlanModal = () => {
+    setIsPlanModalOpen(false);
+    setPlanDestination('');
+    setPlanStartDate('');
+    setPlanEndDate('');
+    setPlanError('');
+    setFocusedIndex(-1);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -164,8 +139,8 @@ export function Dashboard() {
     };
   }, [isPlanModalOpen]);
 
-  const selectDestination = (place: any) => {
-    setPlanDestination(place.display_name);
+  const selectDestination = (place: GeocodedPlace) => {
+    setPlanDestination(place.displayName);
     setSelectedPlace(place);
     setShowDestinations(false);
     setFocusedIndex(-1);
@@ -186,15 +161,13 @@ export function Dashboard() {
     navigate(`/planer/${tripId}`);
   };
 
-  const handleAddPlaceFromSearch = (place: any) => {
-    const newPlace = {
-      id: place.place_id || String(Date.now()),
-      name: place.display_name.split(',')[0],
-      region: place.display_name,
-      type: 'City',
-      displayName: place.display_name,
-      lat: parseFloat(place.lat),
-      lng: parseFloat(place.lon)
+  const handleAddPlaceFromSearch = (place: GeocodedPlace) => {
+    const newPlace: Place = {
+      id: place.id,
+      name: place.name,
+      displayName: place.displayName,
+      lat: place.lat,
+      lng: place.lng
     };
     if (!visitedPlaces.find(p => p.id === newPlace.id)) {
       setVisitedPlaces([...visitedPlaces, newPlace]);
@@ -202,7 +175,7 @@ export function Dashboard() {
     setSearchQuery('');
   };
 
-  const handleTogglePlaceStatus = (city: any) => {
+  const handleTogglePlaceStatus = (city: Place) => {
     const isVisited = visitedPlaces.some(p => p.id === city.id);
     if (isVisited) {
       setVisitedPlaces(visitedPlaces.filter(p => p.id !== city.id));
@@ -232,53 +205,12 @@ export function Dashboard() {
 
     modalSearchTimeout.current = setTimeout(async () => {
       try {
-        // Open-Meteo Geocoding: od 3 znaków dopasowuje początek nazwy,
-        // ignoruje wielkość liter i polskie znaki, zwraca nazwy po polsku.
-        const url =
-          `https://geocoding-api.open-meteo.com/v1/search` +
-          `?name=${encodeURIComponent(query.trim())}&count=15&language=pl&format=json`;
-
-        const res = await fetch(url);
-        const data = await res.json();
+        const results = await searchCities(query, { limit: 6, destinationMode: true });
 
         // Jeśli w międzyczasie wpisano coś nowego, ignorujemy tę odpowiedź
         if (requestId !== searchRequestId.current) return;
 
-        const mapped = (data?.results || [])
-          // tylko miasta/miejscowości (PPL*), państwa (PCL*) i regiony (ADM1)
-          .filter((r: any) => {
-            const code: string = r.feature_code || '';
-            return !code || code.startsWith('PPL') || code.startsWith('PCL') || code === 'ADM1';
-          })
-          .map((r: any) => {
-            const code: string = r.feature_code || '';
-            const kind = code.startsWith('PCL') ? 'country' : code === 'ADM1' ? 'region' : 'city';
-            const display_name =
-              kind === 'country'
-                ? r.name
-                : [r.name, r.admin1, r.country]
-                    .filter(Boolean)
-                    .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i)
-                    .join(', ');
-            return {
-              place_id: String(r.id),
-              display_name,
-              lat: r.latitude,
-              lon: r.longitude,
-              kind,
-            };
-          });
-
-        // Usuwamy duplikaty, kraje wyświetlamy na górze (reszta zostaje w kolejności trafności)
-        const unique = mapped.filter(
-          (item: any, i: number, arr: any[]) =>
-            i === arr.findIndex((t) => t.display_name === item.display_name)
-        );
-        unique.sort(
-          (a: any, b: any) => (a.kind === 'country' ? 0 : 1) - (b.kind === 'country' ? 0 : 1)
-        );
-
-        setModalSearchResults(unique.slice(0, 6));
+        setModalSearchResults(results);
       } catch {
         if (requestId === searchRequestId.current) setModalSearchResults([]);
       } finally {
@@ -319,9 +251,9 @@ export function Dashboard() {
     setIsPlanModalOpen(false);
     
     const params = new URLSearchParams();
-    params.set('dest', place.display_name);
+    params.set('dest', place.displayName);
     params.set('lat', String(place.lat));
-    params.set('lng', String(place.lon));
+    params.set('lng', String(place.lng));
     params.set('kind', place.kind);
     params.set('start', planStartDate || todayDate);
     params.set('end', planEndDate || todayDate);
@@ -335,75 +267,30 @@ export function Dashboard() {
   };
 
   // Wyszukiwarka dla mapy odkrywcy (teraz na Open-Meteo)
-  const [explorerSearchResults, setExplorerSearchResults] = useState<any[]>([]);
+  const [explorerSearchResults, setExplorerSearchResults] = useState<GeocodedPlace[]>([]);
   useEffect(() => {
     if (searchQuery.trim().length < 3) {
       setExplorerSearchResults([]);
       return;
     }
+    let cancelled = false;
     const timer = setTimeout(() => {
-      fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchQuery.trim())}&count=6&language=pl&format=json`)
-        .then(res => res.json())
-        .then(data => {
-          if (!data.results) {
-            setExplorerSearchResults([]);
-            return;
-          }
-          const mapped = data.results.map((r: any) => {
-            
-            // ZMIENIONO: Bierzemy tylko nazwę i kraj, ignorujemy r.admin1 (województwo)
-            const display_name = [r.name, r.country]
-              .filter(Boolean)
-              .filter((v: string, i: number, arr: string[]) => arr.indexOf(v) === i)
-              .join(', ');
-              
-            return {
-              place_id: String(r.id),
-              display_name,
-              lat: r.latitude,
-              lon: r.longitude,
-            };
-          });
-          
-          // Usunięcie duplikatów z listy
-          const unique = mapped.filter(
-            (item: any, i: number, arr: any[]) =>
-              i === arr.findIndex((t) => t.display_name === item.display_name)
-          );
-          setExplorerSearchResults(unique);
-        })
-        .catch(() => setExplorerSearchResults([]));
+      // Tylko nazwa i kraj (bez regionu)
+      searchCities(searchQuery, { limit: 6 })
+        .then(results => { if (!cancelled) setExplorerSearchResults(results); })
+        .catch(() => { if (!cancelled) setExplorerSearchResults([]); });
     }, 300);
-    return () => clearTimeout(timer);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [searchQuery]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 flex flex-col relative">
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-3 group">
-            <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-sm transition-transform group-hover:scale-105">
-              <Globe2 className="w-6 h-6" />
-            </div>
-            <span className="text-2xl font-black tracking-tight text-slate-900">TravelPlanner</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-3 mr-4 border-r border-slate-200 pr-6">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold">E</div>
-              <span className="text-sm font-medium text-slate-700">Cześć, Emil</span>
-            </div>
-            <button onClick={handleLogout} className="text-sm font-medium text-slate-500 hover:text-red-500 transition-colors flex items-center gap-2 cursor-pointer">
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:block">Wyloguj</span>
-            </button>
-          </div>
-        </div>
-      </nav>
+      <AppHeader />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        
+
         <div className="space-y-10">
-          <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-12 text-center relative overflow-hidden">
+          <Card glass padding="none" className="p-12 text-center relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/50 to-slate-50/50 z-0"></div>
             <div className="relative z-10 max-w-2xl mx-auto">
               <div className="inline-flex items-center justify-center p-4 bg-emerald-100 rounded-full mb-6">
@@ -415,35 +302,34 @@ export function Dashboard() {
               <p className="text-slate-500 text-lg mb-8">
                 Świat stoi otworem. Wygeneruj spersonalizowany plan podróży z pomocą AI lub zaplanuj wszystko krok po kroku samodzielnie.
               </p>
-              <button 
-                onClick={() => setIsPlanModalOpen(true)}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all shadow-xl shadow-emerald-200 hover:-translate-y-1 flex items-center justify-center gap-3 mx-auto cursor-pointer"
-              >
+              <Button size="lg" onClick={() => setIsPlanModalOpen(true)} className="mx-auto gap-3">
                 <Plus className="w-6 h-6" />
                 Rozpocznij planowanie
-              </button>
+              </Button>
             </div>
-          </section>
+          </Card>
 
           <section>
-            <div className="flex items-end justify-between mb-8 border-b border-slate-200 pb-4">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900">Moje podróże</h2>
-                <p className="text-slate-500 text-sm mt-1">Ostatnio oglądane i nadchodzące wyjazdy</p>
-              </div>
-            </div>
+            <SectionHeader
+              size="sm"
+              align="left"
+              bordered
+              className="mb-8"
+              title="Moje podróże"
+              description="Ostatnio oglądane i nadchodzące wyjazdy"
+            />
 
             {trips.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {trips.map((trip, index) => (
-                  <motion.div 
-                    key={trip.id} 
+                  <motion.div
+                    key={trip.id}
                     onClick={() => handleTripClick(trip.id)}
-                    initial={{ opacity: 0, y: 20 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    transition={{ delay: index * 0.1, duration: 0.4 }} 
-                    className="bg-white rounded-3xl border border-slate-100 shadow-lg shadow-slate-200/40 overflow-hidden hover:shadow-2xl hover:shadow-slate-200/60 transition-all group cursor-pointer"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1, duration: 0.4 }}
                   >
+                  <Card padding="none" hoverable className="overflow-hidden group cursor-pointer">
                     <div className="h-48 relative overflow-hidden">
                       <img src={trip.imageUrl} alt={trip.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
@@ -456,22 +342,25 @@ export function Dashboard() {
 
                       <div className="absolute top-4 right-4 flex items-center gap-2">
                         <div className="relative">
-                          <button 
+                          <IconButton
+                            label="Opcje podróży"
+                            variant="overlay"
+                            round
                             onClick={(e) => handleToggleMenu(e, trip.id)}
-                            className="p-1.5 rounded-full bg-slate-900/40 text-white hover:bg-slate-900/60 backdrop-blur-md transition-colors opacity-0 group-hover:opacity-100"
+                            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                           >
                             <MoreHorizontal className="w-4 h-4" />
-                          </button>
+                          </IconButton>
 
                           {activeMenuId === trip.id && (
-                            <motion.div 
+                            <motion.div
                               initial={{ opacity: 0, scale: 0.95 }}
                               animate={{ opacity: 1, scale: 1 }}
-                              className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-1 z-20 border border-slate-100"
+                              className={`absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-1 ${LAYER.dropdown} border border-slate-200/80`}
                             >
-                              <button 
+                              <button
                                 onClick={(e) => handleDeleteTrip(e, trip.id)}
-                                className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                                className="w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-4 h-4 text-red-500" />
                                 Przenieś do kosza
@@ -488,70 +377,65 @@ export function Dashboard() {
                         </div>
                       </div>
                     </div>
+                  </Card>
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-3xl border border-slate-100 border-dashed p-12 text-center text-slate-500">
-                Nie masz jeszcze żadnych zaplanowanych wyjazdów.
-              </div>
+              <EmptyState
+                icon={<MapPin />}
+                title="Nie masz jeszcze żadnych zaplanowanych wyjazdów."
+                action={<Button size="sm" onClick={() => setIsPlanModalOpen(true)}><Plus className="w-4 h-4" /> Rozpocznij planowanie</Button>}
+              />
             )}
           </section>
 
-          <section>
-            <div className="flex items-end justify-between mb-8 border-b border-slate-200 pb-4">
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                  <MapIcon className="w-6 h-6 text-emerald-500" />
-                  Mapa odkrywcy
-                </h2>
-                <p className="text-slate-500 text-sm mt-1">
-                  Buduj swój podróżniczy profil. Śledź kraje i miasta, które już udało Ci się odwiedzić.
-                </p>
-              </div>
-            </div>
-          </section>
+          <SectionHeader
+            size="sm"
+            align="left"
+            bordered
+            className="mb-8"
+            icon={<MapIcon />}
+            title="Mapa odkrywcy"
+            description="Buduj swój podróżniczy profil. Śledź kraje i miasta, które już udało Ci się odwiedzić."
+          />
         </div>
 
         <div className={
           isFullscreen 
-            ? "fixed inset-0 z-50 bg-slate-100 flex flex-col" 
-            : "relative w-full h-[500px] bg-slate-100 rounded-[2rem] overflow-hidden border border-slate-200 shadow-inner z-0 mb-12 mt-8"
+            ? `fixed inset-0 ${LAYER.fullscreen} bg-slate-100 flex flex-col`
+            : "relative w-full h-[500px] bg-slate-100 rounded-[2rem] overflow-hidden border border-slate-200/80 shadow-sm z-0 mb-12 mt-8"
         }>
           {isFullscreen && (
-            <div className="absolute top-6 right-6 z-[60]">
-              <button 
-                onClick={() => setIsFullscreen(false)}
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg border border-slate-200 transition-colors cursor-pointer"
-              >
+            <div className={`absolute top-6 right-6 ${LAYER.floating}`}>
+              <Button variant="secondary" size="sm" onClick={() => setIsFullscreen(false)} className="shadow-lg">
                 <X className="w-4 h-4" /> Zamknij
-              </button>
+              </Button>
             </div>
           )}
 
           {isFullscreen ? (
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-md z-[60]">
-              <div className="relative shadow-2xl rounded-xl">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Wpisz min. 3 znaki, aby szukać..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 bg-white rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-lg border-0"
-                />
-              </div>
-              
+            <div className={`absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-md ${LAYER.floating}`}>
+              <Input
+                type="text"
+                aria-label="Szukaj miasta lub kraju"
+                icon={<Search />}
+                placeholder="Wpisz min. 3 znaki, aby szukać..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="shadow-lg font-medium"
+              />
+
               {explorerSearchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl overflow-hidden z-[60] border border-slate-100">
-                  {explorerSearchResults.map((place, idx) => (
-                    <button 
-                      key={idx} 
+                <div className={`absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl overflow-hidden ${LAYER.dropdown} border border-slate-200/80`}>
+                  {explorerSearchResults.map((place) => (
+                    <button
+                      key={place.id}
                       onClick={() => handleAddPlaceFromSearch(place)}
-                      className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-sm font-medium text-slate-700 transition-colors border-b border-slate-50 flex items-center gap-2"
+                      className="w-full text-left px-4 py-3 hover:bg-emerald-50 text-sm font-medium text-slate-700 transition-colors border-b border-slate-100 last:border-0 flex items-center gap-2 cursor-pointer"
                     >
                       <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span className="truncate">{place.display_name}</span>
+                      <span className="truncate">{place.displayName}</span>
                     </button>
                   ))}
                 </div>
@@ -559,18 +443,15 @@ export function Dashboard() {
             </div>
           ) : (
             <div className="absolute top-6 right-6 z-[10]">
-              <button 
-                onClick={() => setIsFullscreen(true)}
-                className="bg-white/95 hover:bg-white text-slate-800 px-5 py-2.5 rounded-xl font-bold text-sm shadow-md border border-slate-100 transition-all hover:shadow-lg cursor-pointer"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setIsFullscreen(true)}>
                 Dodaj odwiedzone miejsca
-              </button>
+              </Button>
             </div>
           )}
 
-          <div 
+          <div
             onClick={() => !isFullscreen && setIsFullscreen(true)}
-            className={`absolute top-6 left-6 bg-slate-800 text-white rounded-2xl p-4 shadow-xl flex items-center gap-5 backdrop-blur-md bg-slate-800/95 border border-slate-700 z-[10] transition-transform ${!isFullscreen ? 'cursor-pointer hover:scale-105' : ''}`}
+            className={`absolute top-6 left-6 bg-white/90 text-slate-900 rounded-2xl p-4 shadow-lg flex items-center gap-5 backdrop-blur-lg border border-slate-200/80 z-[10] transition-transform ${!isFullscreen ? 'cursor-pointer hover:scale-105' : ''}`}
           >
             <div className="text-center">
               <div className="text-2xl font-black">{uniqueCountriesCount}</div>
@@ -580,11 +461,11 @@ export function Dashboard() {
               <div className="text-2xl font-black">{citiesCount}</div>
               <div className="text-[10px] font-bold tracking-widest text-slate-400 uppercase mt-0.5">Miasto</div>
             </div>
-            <div className="flex items-center gap-2 border-l border-slate-600 pl-4 ml-1">
-              <div className="bg-amber-400/20 p-1.5 rounded-lg">
-                <Trophy className="w-5 h-5 text-amber-400" />
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-4 ml-1">
+              <div className="bg-amber-100 p-1.5 rounded-lg">
+                <Trophy className="w-5 h-5 text-amber-500" />
               </div>
-              <span className="font-medium text-sm">Początkujący<br/>odkrywca</span>
+              <span className="font-medium text-sm text-slate-700">Początkujący<br/>odkrywca</span>
             </div>
           </div>
 
@@ -592,7 +473,7 @@ export function Dashboard() {
             key={isFullscreen ? 'fullscreen' : 'windowed'} 
             places={[]} 
             visitedPlaces={visitedPlaces}
-            onTogglePlace={(place) => handleTogglePlaceStatus(place as any)}
+            onTogglePlace={handleTogglePlaceStatus}
           />
 
         </div>
@@ -604,47 +485,38 @@ export function Dashboard() {
 
       <AnimatePresence>
         {isPlanModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-            <div 
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer" 
-              onClick={() => {
-                setIsPlanModalOpen(false);
-                setPlanDestination('');
-                setPlanStartDate('');
-                setPlanEndDate('');
-                setPlanError('');
-                setFocusedIndex(-1);
-              }}
+          <div className={`fixed inset-0 ${LAYER.modal} flex items-center justify-center px-4`}>
+            <div
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer"
+              onClick={closePlanModal}
             ></div>
-            
+
             <motion.div
               ref={modalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Zaplanuj nową podróż"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl p-8 md:p-12 z-10 overflow-visible"
+              className="relative bg-white rounded-[2rem] border border-slate-200/80 shadow-2xl w-full max-w-2xl p-8 md:p-12 z-10 overflow-visible"
             >
-              <button 
-                onClick={() => {
-                  setIsPlanModalOpen(false);
-                  setPlanDestination('');
-                  setPlanStartDate('');
-                  setPlanEndDate('');
-                  setPlanError('');
-                  setFocusedIndex(-1);
-                }} 
-                className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer z-50"
+              <IconButton
+                label="Zamknij"
+                round
+                onClick={closePlanModal}
+                className="absolute top-6 right-6 p-2 z-20"
               >
                 <X className="w-6 h-6" />
-              </button>
-              
+              </IconButton>
+
               <h2 className="text-3xl font-black text-slate-900 mb-10 text-center">
                 Zaplanuj nową podróż
               </h2>
-              
+
               <div className="space-y-5 relative">
                 <div className="relative" ref={dropdownRef}>
-                  <div className="border border-slate-200 rounded-2xl focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all bg-white flex items-center relative z-20">
+                  <div className="border border-slate-200/80 rounded-2xl focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500 hover:border-slate-300 transition-all bg-white flex items-center relative z-20">
                     <div className="pl-5 font-bold text-slate-800 text-sm whitespace-nowrap flex items-center gap-2">
                       {isModalSearching ? <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" /> : null}
                       Dokąd?
@@ -674,7 +546,8 @@ export function Dashboard() {
                           setShowDestinations(false);
                         }
                       }}
-                      placeholder="Wpisz min. 3 znaki (np. Warszawa, Tokio)..." 
+                      aria-label="Cel podróży"
+                      placeholder="Wpisz min. 3 znaki (np. Warszawa, Tokio)..."
                       className="w-full py-4 pl-4 pr-4 bg-transparent text-slate-900 focus:outline-none font-medium placeholder:font-normal placeholder:text-slate-400" 
                     />
                   </div>
@@ -685,20 +558,23 @@ export function Dashboard() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-[70] overflow-hidden max-h-64 overflow-y-auto"
+                        role="listbox"
+                        className={`absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200/80 rounded-2xl shadow-xl ${LAYER.dropdown} overflow-hidden max-h-64 overflow-y-auto`}
                       >
                         {modalSearchResults.map((place, index) => (
                           <div 
                             id={`place-option-${index}`}
-                            key={place.place_id || index}
+                            key={place.id}
+                            role="option"
+                            aria-selected={focusedIndex === index}
                             onClick={() => selectDestination(place)}
-                            className={`flex items-center justify-between px-5 py-3.5 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
-                              focusedIndex === index ? 'bg-slate-100' : 'hover:bg-slate-50'
+                            className={`flex items-center justify-between px-5 py-3.5 cursor-pointer border-b border-slate-100 last:border-0 transition-colors ${
+                              focusedIndex === index ? 'bg-emerald-50' : 'hover:bg-slate-50'
                             }`}
                           >
                             <div className="pr-4">
-                              <div className="font-bold text-slate-900 text-sm">{place.display_name.split(',')[0]}</div>
-                              <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{place.display_name}</div>
+                              <div className="font-bold text-slate-900 text-sm">{place.name}</div>
+                              <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{place.displayName}</div>
                             </div>
                             <span className="bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider shrink-0">
                               {place.kind === 'country' ? 'Kraj' : place.kind === 'region' ? 'Region' : 'Miasto'}
@@ -716,7 +592,7 @@ export function Dashboard() {
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-[70] px-5 py-4 text-sm text-slate-500"
+                        className={`absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200/80 rounded-2xl shadow-xl ${LAYER.dropdown} px-5 py-4 text-sm text-slate-500`}
                       >
                         Nie znaleziono pasujących miast ani państw.
                       </motion.div>
@@ -724,9 +600,9 @@ export function Dashboard() {
                   </AnimatePresence>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row border border-slate-200 rounded-2xl overflow-hidden bg-white">
-                  <div 
-                    className="relative flex-1 p-2 sm:border-r border-slate-200 focus-within:bg-slate-50 transition-colors group cursor-pointer"
+                <div className="flex flex-col sm:flex-row border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+                  <div
+                    className="relative flex-1 p-2 sm:border-r border-slate-200/80 focus-within:bg-slate-50 transition-colors group cursor-pointer"
                     onClick={() => {
                       try {
                         startDateRef.current?.showPicker();
@@ -755,7 +631,7 @@ export function Dashboard() {
                   </div>
                   
                   <div 
-                    className="relative flex-1 p-2 border-t sm:border-t-0 border-slate-200 focus-within:bg-slate-50 transition-colors group cursor-pointer"
+                    className="relative flex-1 p-2 border-t sm:border-t-0 border-slate-200/80 focus-within:bg-slate-50 transition-colors group cursor-pointer"
                     onClick={() => {
                       try {
                         endDateRef.current?.showPicker();
@@ -785,31 +661,18 @@ export function Dashboard() {
                 </div>
                 
                 {planError && (
-                  <div className="text-red-500 font-bold text-sm text-center pt-2">
+                  <div role="alert" className="p-3 text-sm font-bold text-red-600 bg-red-50 border border-red-100 rounded-xl text-center">
                     {planError}
                   </div>
                 )}
-                
+
                 <div className="pt-6 flex flex-col items-center gap-4">
-                  <button 
-                    onClick={handleStartPlanning}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-12 py-4 rounded-full font-bold text-lg transition-all shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer"
-                  >
+                  <Button pill size="lg" onClick={handleStartPlanning} className="px-12">
                     Zacznij planować
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setIsPlanModalOpen(false);
-                      setPlanDestination('');
-                      setPlanStartDate('');
-                      setPlanEndDate('');
-                      setPlanError('');
-                      setFocusedIndex(-1);
-                    }}
-                    className="text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                  >
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={closePlanModal}>
                     Anuluj
-                  </button>
+                  </Button>
                 </div>
               </div>
             </motion.div>

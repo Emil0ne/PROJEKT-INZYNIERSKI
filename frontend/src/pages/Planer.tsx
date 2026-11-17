@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Wallet, MapPin, Search, Plus, Clock, ListTodo, Map as MapIcon, Check, Trash2, Loader2, Edit3, Save, X, Plane, LogOut, ChevronRight, ChevronLeft, GripVertical, Palette } from 'lucide-react';
+import { useParams, useLocation, Navigate } from 'react-router-dom';
+import { Wallet, MapPin, Search, Plus, Clock, ListTodo, Map as MapIcon, Check, Trash2, Loader2, Edit3, Save, X, Plane, ChevronRight, ChevronLeft, GripVertical, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // DND-KIT IMPORTS
@@ -9,50 +9,41 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 
 import { TravelMap } from '../components/TravelMap';
+import { AppHeader } from '../components/AppHeader';
+import { Button, Card, EmptyState, IconButton, Input } from '../components/ui';
+import { LAYER } from '../lib/layers';
 import { OverviewView } from './OverviewView';
-import { BudgetView, type BudgetItem } from './BudgetView';
+import { BudgetView } from './BudgetView';
 import { FlightsAndHotelView } from './FlightsAndHotelView';
+import { DEFAULT_BUDGET_ITEMS, DEFAULT_PACKING_ITEMS, getTripById } from '../mocks/trips';
+import { DEFAULT_CENTER, DEFAULT_CURRENCY, DEFAULT_PIN_COLOR, DEFAULT_TOTAL_BUDGET } from '../lib/constants';
+import { generateTripDays } from '../lib/dates';
+import { biasDeltaForZoom, geocodeAddress, reverseGeocode, searchPlaces, zoomForKind } from '../lib/geocoding';
+import type { BudgetItem } from '../types/budget';
+import type { ClickedPoint, GeocodedPlace, Place } from '../types/place';
+import type { PackingItem, ScheduleItem, TripDay } from '../types/trip';
 
-const MOCK_TRIP = {
-  id: '1',
-  title: 'Włoskie Wakacje',
-  lat: 37.5999,
-  lng: 14.0154,
-  zoom: 8,
-  startDate: '2026-05-25',
-  endDate: '2026-05-29',
-  budget: 4500,
-  currency: 'PLN',
-  days: [
-    {
-      id: 'd1',
-      date: '2026-05-25',
-      dayNumber: 1,
-      customTitle: '',
-      color: '#10b981',
-      items: [
-        { id: 'i1', title: 'Przylot i odbiór Fiata Pandy', time: '10:00', type: 'transport', lat: 37.4698, lng: 15.0659, cost: 800 },
-      ]
-    },
-    {
-      id: 'd2',
-      date: '2026-05-26',
-      dayNumber: 2,
-      customTitle: '',
-      color: '#2563eb',
-      items: [
-        { id: 'i4', title: 'Zwiedzanie Taorminy (Teatr Antyczny)', time: '09:30', type: 'activity', lat: 37.8523, lng: 15.2922, cost: 120 },
-      ]
-    }
-  ]
-};
+interface SortableScheduleItemProps {
+  item: ScheduleItem;
+  isLast: boolean;
+  editingItemId: string | null;
+  editTitle: string;
+  editTime: string;
+  editCost: number;
+  setEditTitle: (value: string) => void;
+  setEditTime: (value: string) => void;
+  setEditCost: (value: number) => void;
+  startEditingItem: (item: ScheduleItem) => void;
+  saveEditingItem: (dayId: string, itemId: string) => void;
+  deleteScheduleItem: (dayId: string, itemId: string) => void;
+  setEditingItemId: (id: string | null) => void;
+  dayId: string;
+  onFocusOnMap: (lat: number, lng: number) => void;
+  currency: string;
+}
 
-const DEFAULT_CENTER: [number, number] = [50.0614, 19.9365];
-const zoomForKind = (kind: string | null) => (kind === 'country' ? 5 : kind === 'region' ? 8 : 11);
-const biasDeltaForZoom = (zoom: number) => (zoom >= 10 ? 0.4 : zoom >= 7 ? 2 : 10);
-
-function SortableScheduleItem(props: any) {
-  const { item, isLast, editingItemId, editTitle, editTime, editCost, setEditTitle, setEditTime, setEditCost, startEditingItem, saveEditingItem, deleteScheduleItem, setEditingItemId, dayId, onFocusOnMap } = props;
+function SortableScheduleItem(props: SortableScheduleItemProps) {
+  const { currency, item, isLast, editingItemId, editTitle, editTime, editCost, setEditTitle, setEditTime, setEditCost, startEditingItem, saveEditingItem, deleteScheduleItem, setEditingItemId, dayId, onFocusOnMap } = props;
   
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 1 };
@@ -72,7 +63,7 @@ function SortableScheduleItem(props: any) {
       {!isLast && <div className="absolute left-[34px] top-14 bottom-[-16px] w-0.5 bg-slate-200 z-0"></div>}
       
       {/* Uchwyt do przeciągania */}
-      <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-emerald-500 rounded-lg outline-none z-10 shrink-0 mt-0.5" title="Przeciągnij">
+      <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="cursor-grab active:cursor-grabbing p-1 text-slate-300 hover:text-emerald-500 rounded-lg outline-none z-10 shrink-0 mt-0.5" title="Przeciągnij" aria-label="Przeciągnij pozycję">
         <GripVertical className="w-5 h-5" />
       </div>
 
@@ -85,12 +76,12 @@ function SortableScheduleItem(props: any) {
             </div>
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">Koszt (PLN):</span>
+                <span className="text-xs font-bold text-slate-500">Koszt ({currency}):</span>
                 <input type="number" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} className="w-24 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => saveEditingItem(dayId, item.id)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"><Save className="w-3.5 h-3.5" /> Zapisz</button>
-                <button onClick={() => setEditingItemId(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"><X className="w-4 h-4" /></button>
+                <Button size="sm" onClick={() => saveEditingItem(dayId, item.id)} className="text-xs"><Save className="w-3.5 h-3.5" /> Zapisz</Button>
+                <IconButton label="Anuluj edycję" onClick={() => setEditingItemId(null)} className="p-2"><X className="w-4 h-4" /></IconButton>
               </div>
             </div>
           </div>
@@ -103,12 +94,12 @@ function SortableScheduleItem(props: any) {
               <div className="flex items-start justify-between">
                 <h3 className="font-bold text-slate-900 leading-tight pr-4">{item.title}</h3>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); startEditingItem(item); }} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer" title="Edytuj"><Edit3 className="w-4 h-4" /></button>
-                  <button onClick={(e) => { e.stopPropagation(); deleteScheduleItem(dayId, item.id); }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer" title="Usuń"><Trash2 className="w-4 h-4" /></button>
+                  <IconButton label="Edytuj" onClick={(e) => { e.stopPropagation(); startEditingItem(item); }}><Edit3 className="w-4 h-4" /></IconButton>
+                  <IconButton label="Usuń" variant="danger" onClick={(e) => { e.stopPropagation(); deleteScheduleItem(dayId, item.id); }}><Trash2 className="w-4 h-4" /></IconButton>
                 </div>
               </div>
               <div className="flex items-center gap-3 mt-3 text-xs font-bold text-slate-500">
-                {item.cost > 0 && <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md"><Wallet className="w-3 h-3 text-slate-400" /> {item.cost} PLN</span>}
+                {item.cost > 0 && <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md"><Wallet className="w-3 h-3 text-slate-400" /> {item.cost} {currency}</span>}
                 <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md"><Clock className="w-3 h-3 text-slate-400" /> 2h</span>
               </div>
             </div>
@@ -120,7 +111,15 @@ function SortableScheduleItem(props: any) {
 }
 
 // --- KOMPONENT SORTOWALNEGO DNIA W PANELU BOCZNYM ---
-function SortableDayItem(props: any) {
+interface SortableDayItemProps {
+  day: TripDay;
+  activeSection: string;
+  setActiveSection: (id: string) => void;
+  setIsEditingDayTitle: (value: boolean) => void;
+  onFocusOnMap: (lat: number, lng: number) => void;
+}
+
+function SortableDayItem(props: SortableDayItemProps) {
   const { day, activeSection, setActiveSection, setIsEditingDayTitle, onFocusOnMap } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day.id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 1 };
@@ -158,7 +157,7 @@ function SortableDayItem(props: any) {
           <span className={`text-[10px] font-black ${isActive ? 'text-white/80' : 'text-slate-400'}`}>
             {day.date.split('-').slice(1).join('.')}
           </span>
-          <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-emerald-500 rounded outline-none" title="Przesuń dzień">
+          <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-emerald-500 rounded outline-none" title="Przesuń dzień" aria-label={`Przesuń dzień: ${dayName}`}>
             <GripVertical className="w-4 h-4" />
           </div>
         </div>
@@ -167,7 +166,7 @@ function SortableDayItem(props: any) {
       {/* PODKATEGORIE: Atrakcje w lewym panelu */}
       {day.items.length > 0 && (
         <div className="pl-7 pr-2 py-1 space-y-1">
-          {day.items.map((item: any) => (
+          {day.items.map((item) => (
             <button
               key={item.id}
               onClick={() => { 
@@ -190,41 +189,26 @@ function SortableDayItem(props: any) {
 export function Planer() {
   const { id } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   
   const isNew = id === 'nowy';
-  const tripDestination = isNew ? (searchParams.get('dest') || 'Kraków, Polska') : 'Sycylia, Włochy';
-  const tripTitle = isNew ? `Wyjazd: ${tripDestination.split(',')[0]}` : MOCK_TRIP.title;
+  // Dane wybranej podróży (do czasu podpięcia REST API – z mocków); dla 'nowy' – z parametrów URL.
+  const trip = isNew ? undefined : getTripById(id);
 
-  const destLat = isNew ? parseFloat(searchParams.get('lat') ?? '') : MOCK_TRIP.lat;
-  const destLng = isNew ? parseFloat(searchParams.get('lng') ?? '') : MOCK_TRIP.lng;
-  const destZoom = isNew ? zoomForKind(searchParams.get('kind')) : MOCK_TRIP.zoom;
+  const tripDestination = trip ? trip.location : (searchParams.get('dest') || 'Kraków, Polska');
+  const tripTitle = trip ? trip.title : `Wyjazd: ${tripDestination.split(',')[0]}`;
+  const currency = trip?.currency ?? DEFAULT_CURRENCY;
+  const startDate = trip ? trip.startDate : searchParams.get('start');
+  const endDate = trip ? trip.endDate : searchParams.get('end');
+
+  const destLat = trip ? trip.lat : parseFloat(searchParams.get('lat') ?? '');
+  const destLng = trip ? trip.lng : parseFloat(searchParams.get('lng') ?? '');
+  const destZoom = trip ? trip.zoom : zoomForKind(searchParams.get('kind'));
   const hasDestCoords = !isNaN(destLat) && !isNaN(destLng);
-  
-  const [tripDays, setTripDays] = useState(() => {
-    const defaultColors = ['#10b981', '#2563eb', '#f59e0b', '#9333ea', '#f43f5e', '#ea580c'];
-    if (!isNew) return MOCK_TRIP.days;
-    const startParam = searchParams.get('start');
-    const endParam = searchParams.get('end');
-    if (!startParam || !endParam) return [];
 
-    const startDate = new Date(startParam);
-    const endDate = new Date(endParam);
-    const daysCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-    return Array.from({ length: Math.max(1, daysCount) }).map((_, i) => {
-      const date = new Date(startDate);
-      date.setUTCDate(date.getUTCDate() + i);
-      return { 
-        id: `d${i + 1}`, 
-        date: date.toISOString().split('T')[0], 
-        dayNumber: i + 1, 
-        customTitle: '', 
-        color: defaultColors[i % defaultColors.length],
-        items: [] 
-      };
-    });
+  const [tripDays, setTripDays] = useState<TripDay[]>(() => {
+    if (trip && trip.days.length > 0) return trip.days;
+    return generateTripDays(startDate, endDate);
   });
 
   const [activeSection, setActiveSection] = useState<string>('d1'); 
@@ -233,19 +217,16 @@ export function Planer() {
   const [isMapVisible, setIsMapVisible] = useState(true);
   
   const [placeQuery, setPlaceQuery] = useState('');
-  const [placeResults, setPlaceResults] = useState<any[]>([]);
+  const [placeResults, setPlaceResults] = useState<GeocodedPlace[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const placeRequestId = useRef(0);
   const searchBias = useRef<{ lat: number; lng: number; delta: number } | null>(null);
 
-  const [clickedMapPoint, setClickedMapPoint] = useState<{ lat: number, lng: number, name: string, isLoading: boolean } | null>(null);
+  const [clickedMapPoint, setClickedMapPoint] = useState<ClickedPoint | null>(null);
 
-  const [totalBudget, setTotalBudget] = useState<number>(3000);
-  const [customBudgetItems, setCustomBudgetItems] = useState<BudgetItem[]>([
-    { id: 'flight-default', title: 'Loty w obie strony', category: 'Loty', cost: 1200, currency: 'PLN' },
-    { id: 'hotel-default', title: 'Hotel / Nocleg', category: 'Hotel', cost: 1500, currency: 'PLN' },
-  ]);
+  const [totalBudget, setTotalBudget] = useState<number>(trip?.budget ?? DEFAULT_TOTAL_BUDGET);
+  const [customBudgetItems, setCustomBudgetItems] = useState<BudgetItem[]>(DEFAULT_BUDGET_ITEMS);
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -256,10 +237,7 @@ export function Planer() {
   const [dayCustomTitleInput, setDayCustomTitleInput] = useState('');
 
   const [newItemText, setNewItemText] = useState('');
-  const [packingItems, setPackingItems] = useState([
-    { id: 1, text: 'Paszport / Dowód osobisty', packed: false },
-    { id: 2, text: 'Ładowarka do telefonu', packed: true },
-  ]);
+  const [packingItems, setPackingItems] = useState<PackingItem[]>(DEFAULT_PACKING_ITEMS);
 
   const isScheduleMode = activeSection.startsWith('d');
 
@@ -309,16 +287,13 @@ export function Planer() {
 
     if (!tripDestination) return;
     let cancelled = false;
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=pl&q=${encodeURIComponent(tripDestination)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (cancelled || !data || data.length === 0) return;
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        const zoom = data[0].addresstype === 'country' ? 5 : 11;
-        setMapCenter([lat, lng]);
+    geocodeAddress(tripDestination)
+      .then((place) => {
+        if (cancelled || !place) return;
+        const zoom = place.kind === 'country' ? 5 : 11;
+        setMapCenter([place.lat, place.lng]);
         setMapZoom(zoom);
-        searchBias.current = { lat, lng, delta: biasDeltaForZoom(zoom) };
+        searchBias.current = { lat: place.lat, lng: place.lng, delta: biasDeltaForZoom(zoom) };
       })
       .catch(console.error);
     return () => { cancelled = true; };
@@ -338,19 +313,9 @@ export function Planer() {
     setIsSearching(true);
     searchTimeout.current = setTimeout(async () => {
       try {
-        let url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=pl&q=${encodeURIComponent(query.trim())}`;
-        const bias = searchBias.current;
-        if (bias) {
-          const left = bias.lng - bias.delta;
-          const right = bias.lng + bias.delta;
-          const top = bias.lat + bias.delta;
-          const bottom = bias.lat - bias.delta;
-          url += `&viewbox=${left},${top},${right},${bottom}`;
-        }
-        const res = await fetch(url);
-        const data = await res.json();
+        const results = await searchPlaces(query, { limit: 6, bias: searchBias.current });
         if (requestId !== placeRequestId.current) return;
-        setPlaceResults(data || []);
+        setPlaceResults(results);
       } catch {
         if (requestId === placeRequestId.current) setPlaceResults([]);
       } finally {
@@ -362,7 +327,7 @@ export function Planer() {
   const addItemToActiveDay = (placeName: string, lat: number, lng: number) => {
     if (!activeSection.startsWith('d')) return; 
     
-    const newItem = {
+    const newItem: ScheduleItem = {
       id: `i${Date.now()}`,
       title: placeName,
       time: '12:00',
@@ -380,12 +345,11 @@ export function Planer() {
     }));
   };
 
-  const handleAddPlaceFromSearch = (place: any) => {
-    const lat = parseFloat(place.lat);
-    const lng = parseFloat(place.lon);
+  const handleAddPlaceFromSearch = (place: GeocodedPlace) => {
+    const { lat, lng } = place;
     if (isNaN(lat) || isNaN(lng)) return;
 
-    const placeName = place?.display_name ? place.display_name.split(',')[0] : 'Wybrane miejsce';
+    const placeName = place.displayName ? place.name : 'Wybrane miejsce';
     addItemToActiveDay(placeName, lat, lng);
     setPlaceQuery('');
     setPlaceResults([]);
@@ -398,12 +362,7 @@ export function Planer() {
     setClickedMapPoint({ lat, lng, name: '', isLoading: true });
 
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=pl`);
-      const data = await res.json();
-      let placeName = 'Wybrane miejsce';
-      if (data && data.display_name) {
-        placeName = data.name || data.address?.road || data.display_name.split(',')[0];
-      }
+      const placeName = await reverseGeocode(lat, lng);
       setClickedMapPoint({ lat, lng, name: placeName, isLoading: false });
     } catch {
       setClickedMapPoint({ lat, lng, name: 'Wybrana lokalizacja', isLoading: false });
@@ -417,7 +376,7 @@ export function Planer() {
     }
   };
 
-  const startEditingItem = (item: any) => {
+  const startEditingItem = (item: ScheduleItem) => {
     setEditingItemId(item.id);
     setEditTitle(item.title);
     setEditTime(item.time);
@@ -465,26 +424,29 @@ export function Planer() {
     }));
   };
 
-  const togglePackingItem = (id: number) => setPackingItems(items => items.map(item => item.id === id ? { ...item, packed: !item.packed } : item));
-  const deletePackingItem = (id: number, e: React.MouseEvent) => { e.stopPropagation(); setPackingItems(items => items.filter(item => item.id !== id)); };
+  const togglePackingItem = (id: string) => setPackingItems(items => items.map(item => item.id === id ? { ...item, packed: !item.packed } : item));
+  const deletePackingItem = (id: string, e: React.MouseEvent) => { e.stopPropagation(); setPackingItems(items => items.filter(item => item.id !== id)); };
   const addPackingItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemText.trim()) return;
-    setPackingItems([...packingItems, { id: Date.now(), text: newItemText, packed: false }]);
+    setPackingItems([...packingItems, { id: String(Date.now()), text: newItemText, packed: false }]);
     setNewItemText('');
   };
 
   // ZBIERAMY WSZYSTKIE PINEZKI ZE WSZYSTKICH DNI DO WYŚWIETLENIA NA MAPIE
-  const allMapPlaces = tripDays.flatMap(day => 
+  const allMapPlaces: Place[] = tripDays.flatMap(day =>
     day.items.map(item => ({
       id: item.id,
       name: item.title,
       displayName: `${item.time} - ${item.title} (${day.customTitle || `Dzień ${day.dayNumber}`})`,
       lat: item.lat,
       lng: item.lng,
-      color: day.color || '#10b981'
+      color: day.color || DEFAULT_PIN_COLOR
     }))
   );
+
+  // Nieznane id podróży → wracamy do listy
+  if (!isNew && !trip) return <Navigate to="/dashboard" replace />;
 
   const currentDay = tripDays.find(d => d.id === activeSection);
 
@@ -504,30 +466,12 @@ export function Planer() {
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden font-sans text-slate-900">
       
-      <header className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
-        <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 cursor-pointer">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="font-black text-lg text-slate-900 leading-tight truncate max-w-md">{tripTitle}</h1>
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-              <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-emerald-500" /> {tripDestination}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-3 mr-4 border-r border-slate-200 pr-6">
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold">E</div>
-            <span className="text-sm font-medium text-slate-700">Cześć, Emil</span>
-          </div>
-          <button onClick={() => navigate('/')} className="text-sm font-medium text-slate-500 hover:text-red-500 transition-colors flex items-center gap-2 cursor-pointer">
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:block">Wyloguj</span>
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        layout="workspace"
+        backTo="/dashboard"
+        title={tripTitle}
+        subtitle={<span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-emerald-500" /> {tripDestination}</span>}
+      />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="flex-1 flex overflow-hidden relative">
@@ -577,26 +521,21 @@ export function Planer() {
             <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden relative">
               {isScheduleMode && (
                 <div className="p-4 border-b border-slate-100 bg-white shadow-sm shrink-0 relative">
-                  <div className="relative">
-                    {isSearching ? (
-                      <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500 animate-spin" />
-                    ) : (
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    )}
-                    <input 
-                      type="text" 
-                      value={placeQuery}
-                      onChange={(e) => handleSearchPlace(e.target.value)}
-                      placeholder="Szukaj miejsc lub dodawaj je klikając na mapie..."
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
-                    />
-                  </div>
+                  <Input
+                    type="text"
+                    aria-label="Szukaj miejsc"
+                    icon={isSearching ? <Loader2 className="text-emerald-500 animate-spin" /> : <Search />}
+                    value={placeQuery}
+                    onChange={(e) => handleSearchPlace(e.target.value)}
+                    placeholder="Szukaj miejsc lub dodawaj je klikając na mapie..."
+                    className="font-medium"
+                  />
 
                   {placeResults.length > 0 && placeQuery.trim() !== '' && (
-                    <div className="absolute top-full left-4 right-4 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden max-h-[300px] overflow-y-auto z-30">
-                      {placeResults.map((place, index) => (
+                    <div className={`absolute top-full left-4 right-4 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden max-h-[300px] overflow-y-auto ${LAYER.dropdown}`}>
+                      {placeResults.map((place) => (
                         <button
-                          key={place?.place_id || index}
+                          key={place.id}
                           onClick={() => handleAddPlaceFromSearch(place)}
                           className="w-full text-left px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors flex items-start gap-3 group cursor-pointer"
                         >
@@ -605,10 +544,10 @@ export function Planer() {
                           </div>
                           <div>
                             <div className="font-bold text-slate-900 text-sm">
-                              {place?.display_name ? place.display_name.split(',')[0] : 'Miejsce'}
+                              {place.name}
                             </div>
                             <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">
-                              {place?.display_name || ''}
+                              {place.displayName}
                             </div>
                           </div>
                         </button>
@@ -632,21 +571,22 @@ export function Planer() {
                       <OverviewView 
                         tripTitle={tripTitle} 
                         destination={tripDestination} 
-                        startDate={searchParams.get('start') || '2026-05-25'} 
-                        endDate={searchParams.get('end') || '2026-05-29'} 
+                        startDate={startDate ?? ''}
+                        endDate={endDate ?? ''}
                         totalDays={tripDays.length}
                         totalBudget={totalBudget}
+                        currency={currency}
                         customItems={customBudgetItems}
                         scheduleItems={tripDays.flatMap(day => day.items)}
                         packingItemsCount={packingItems.length}
                         packedItemsCount={packingItems.filter(i => i.packed).length}
                       />
                     ) : activeSection === 'flights-hotel' ? (
-                      <FlightsAndHotelView customItems={customBudgetItems} setCustomItems={setCustomBudgetItems} />
+                      <FlightsAndHotelView customItems={customBudgetItems} setCustomItems={setCustomBudgetItems} currency={currency} />
                     ) : activeSection === 'budget' ? (
-                      <BudgetView budget={totalBudget} setBudget={setTotalBudget} customItems={customBudgetItems} setCustomItems={setCustomBudgetItems} scheduleItems={tripDays.flatMap(day => day.items)} />
+                      <BudgetView tripId={trip?.id} currency={currency} budget={totalBudget} setBudget={setTotalBudget} customItems={customBudgetItems} setCustomItems={setCustomBudgetItems} scheduleItems={tripDays.flatMap(day => day.items)} />
                     ) : activeSection === 'packing' ? (
-                      <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm">
+                      <Card padding="lg" className="max-w-3xl mx-auto">
                         <div className="mb-8">
                           <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><ListTodo className="w-6 h-6 text-emerald-500" /> Co spakować?</h2>
                         </div>
@@ -654,20 +594,19 @@ export function Planer() {
                           {packingItems.map(item => (
                             <div key={item.id} onClick={() => togglePackingItem(item.id)} className={`flex items-center justify-between gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${item.packed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-emerald-300 hover:shadow-sm'}`}>
                               <div className="flex items-center gap-4">
-                                <button className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 transition-colors ${item.packed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
+                                <button type="button" aria-label={item.packed ? `Odznacz: ${item.text}` : `Zaznacz jako spakowane: ${item.text}`} aria-pressed={item.packed} className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-full border-2 transition-colors cursor-pointer ${item.packed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
                                   {item.packed && <Check className="w-3.5 h-3.5 text-white" />}
                                 </button>
                                 <span className={`font-bold text-sm ${item.packed ? 'line-through text-slate-400' : 'text-slate-800'}`}>{item.text}</span>
                               </div>
-                              <button onClick={(e) => deletePackingItem(item.id, e)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100" title="Usuń pozycję"><Trash2 className="w-4 h-4" /></button>
+                              <IconButton label="Usuń pozycję" variant="danger" onClick={(e) => deletePackingItem(item.id, e)} className="p-2 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"><Trash2 className="w-4 h-4" /></IconButton>
                             </div>
                           ))}
                         </div>
-                        <form onSubmit={addPackingItem} className="relative">
-                          <Plus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                          <input type="text" value={newItemText} onChange={(e) => setNewItemText(e.target.value)} placeholder="Dodaj kolejną rzecz..." className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all" />
+                        <form onSubmit={addPackingItem}>
+                          <Input type="text" aria-label="Nowa rzecz do spakowania" icon={<Plus />} value={newItemText} onChange={(e) => setNewItemText(e.target.value)} placeholder="Dodaj kolejną rzecz..." className="py-3.5 font-medium" />
                         </form>
-                      </div>
+                      </Card>
                     ) : activeSection.startsWith('d') && currentDay ? (
                       <div className="max-w-3xl mx-auto">
                         
@@ -676,8 +615,8 @@ export function Planer() {
                             {isEditingDayTitle ? (
                               <div className="flex items-center gap-2 mb-1">
                                 <input type="text" value={dayCustomTitleInput} onChange={(e) => setDayCustomTitleInput(e.target.value)} placeholder={`np. Dzień ${currentDay.dayNumber}: Przylot`} className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xl font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" autoFocus />
-                                <button onClick={() => saveDayCustomTitle(currentDay.id)} className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors shadow-sm"><Save className="w-4 h-4" /></button>
-                                <button onClick={() => setIsEditingDayTitle(false)} className="p-2 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition-colors"><X className="w-4 h-4" /></button>
+                                <Button aria-label="Zapisz nazwę dnia" title="Zapisz nazwę dnia" onClick={() => saveDayCustomTitle(currentDay.id)} className="!p-2"><Save className="w-4 h-4" /></Button>
+                                <Button variant="secondary" aria-label="Anuluj edycję nazwy dnia" title="Anuluj" onClick={() => setIsEditingDayTitle(false)} className="!p-2"><X className="w-4 h-4" /></Button>
                               </div>
                             ) : (
                               <div className="flex items-center gap-3 group/title">
@@ -685,7 +624,7 @@ export function Planer() {
                                   <span style={currentDayDotStyle} className={currentDayDotClass}></span>
                                   {currentDay.customTitle ? currentDay.customTitle : `Dzień ${currentDay.dayNumber}`}
                                 </h2>
-                                <button onClick={() => { setDayCustomTitleInput(currentDay.customTitle || `Dzień ${currentDay.dayNumber}`); setIsEditingDayTitle(true); }} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all opacity-0 group-hover/title:opacity-100"><Edit3 className="w-4 h-4" /></button>
+                                <IconButton label="Edytuj nazwę dnia" onClick={() => { setDayCustomTitleInput(currentDay.customTitle || `Dzień ${currentDay.dayNumber}`); setIsEditingDayTitle(true); }} className="opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100"><Edit3 className="w-4 h-4" /></IconButton>
                               </div>
                             )}
                             <p className="text-slate-500 font-medium text-sm mt-0.5">{currentDay.date}</p>
@@ -712,7 +651,6 @@ export function Planer() {
                               <SortableScheduleItem 
                                 key={item.id}
                                 item={item}
-                                index={index}
                                 isLast={index === currentDay.items.length - 1}
                                 editingItemId={editingItemId}
                                 editTitle={editTitle}
@@ -727,13 +665,14 @@ export function Planer() {
                                 setEditingItemId={setEditingItemId}
                                 dayId={currentDay.id}
                                 onFocusOnMap={handleFocusOnMap}
+                                currency={currency}
                               />
                             )) : (
-                              <div className="bg-white border border-slate-200 border-dashed rounded-2xl p-8 text-center">
-                                <div className="inline-flex bg-slate-50 p-3 rounded-full mb-3"><MapPin className="w-6 h-6 text-slate-400" /></div>
-                                <h3 className="font-bold text-slate-900 mb-1">Twój dzień jest pusty</h3>
-                                <p className="text-sm text-slate-500">Użyj wyszukiwarki lub kliknij w dowolne miejsce na mapie.</p>
-                              </div>
+                              <EmptyState
+                                icon={<MapPin />}
+                                title="Twój dzień jest pusty"
+                                description="Użyj wyszukiwarki lub kliknij w dowolne miejsce na mapie."
+                              />
                             )}
                           </div>
                         </SortableContext>
@@ -745,7 +684,7 @@ export function Planer() {
             </div>
 
             {isScheduleMode && (
-              <button onClick={() => setIsMapVisible(!isMapVisible)} className="absolute right-[-14px] top-1/2 -translate-y-1/2 z-[60] bg-white border border-slate-200 shadow-[0_4px_10px_rgba(0,0,0,0.1)] p-1.5 rounded-full text-slate-400 hover:text-emerald-500 hover:scale-110 transition-all" title={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"}>
+              <button onClick={() => setIsMapVisible(!isMapVisible)} aria-label={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"} className={`absolute right-[-14px] top-1/2 -translate-y-1/2 ${LAYER.floating} bg-white border border-slate-200/80 shadow-[0_4px_10px_rgba(0,0,0,0.1)] p-1.5 rounded-full text-slate-400 hover:text-emerald-500 hover:scale-110 transition-all cursor-pointer`} title={isMapVisible ? "Ukryj mapę" : "Pokaż mapę"}>
                 {isMapVisible ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
               </button>
             )}

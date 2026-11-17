@@ -1,6 +1,11 @@
 import { useState, useRef } from 'react';
 import { Plane, Hotel, Plus, Trash2 } from 'lucide-react';
-import type { BudgetItem } from './BudgetView';
+import type { BudgetItem } from '../types/budget';
+import { Button, Card, EmptyState, IconButton, Input, SectionHeader } from '../components/ui';
+import { LAYER } from '../lib/layers';
+import { DEFAULT_CURRENCY } from '../lib/constants';
+import { searchAirports } from '../lib/geocoding';
+import type { GeocodedPlace } from '../types/place';
 
 interface FlightsAndHotelViewProps {
   customItems: BudgetItem[];
@@ -8,7 +13,7 @@ interface FlightsAndHotelViewProps {
   currency?: string;
 }
 
-export function FlightsAndHotelView({ customItems, setCustomItems, currency = 'PLN' }: FlightsAndHotelViewProps) {
+export function FlightsAndHotelView({ customItems, setCustomItems, currency = DEFAULT_CURRENCY }: FlightsAndHotelViewProps) {
   const [flightFrom, setFlightFrom] = useState('');
   const [flightTo, setFlightTo] = useState('');
   const [flightCost, setFlightCost] = useState('');
@@ -16,19 +21,18 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = 'P
   const [hotelName, setHotelName] = useState('');
   const [hotelCost, setHotelCost] = useState('');
 
-  const [fromResults, setFromResults] = useState<any[]>([]);
-  const [toResults, setToResults] = useState<any[]>([]);
+  const [fromResults, setFromResults] = useState<GeocodedPlace[]>([]);
+  const [toResults, setToResults] = useState<GeocodedPlace[]>([]);
   const fromTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const searchAirport = (query: string, setter: (res: any[]) => void) => {
+  const searchAirport = (query: string, setter: (res: GeocodedPlace[]) => void) => {
     if (query.trim().length < 3) {
       setter([]);
       return;
     }
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ' lotnisko airport')}&limit=5&accept-language=pl`)
-      .then(res => res.json())
-      .then(data => setter(data || []))
+    searchAirports(query)
+      .then(setter)
       .catch(() => setter([]));
   };
 
@@ -75,24 +79,28 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = 'P
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8 animate-fadeIn">
-      
-      <div className="bg-white border border-slate-200/80 rounded-[2rem] p-8 shadow-sm">
-        <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-          <Plane className="w-6 h-6 text-emerald-500" /> Loty i Nocleg
-        </h2>
-        <p className="text-slate-500 text-sm mt-1">Zarządzaj rezerwacjami transportu lotniczego oraz miejscami noclegowymi.</p>
-      </div>
+
+      <Card padding="lg">
+        <SectionHeader
+          size="sm"
+          align="left"
+          icon={<Plane />}
+          title="Loty i Nocleg"
+          description="Zarządzaj rezerwacjami transportu lotniczego oraz miejscami noclegowymi."
+        />
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        <div className="bg-white border border-slate-200/80 rounded-[2rem] p-6 shadow-sm space-y-4">
+
+        <Card className="space-y-4">
           <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
             <Plane className="w-4 h-4 text-emerald-500" /> Dodaj Lot
           </h3>
           <form onSubmit={handleAddFlight} className="space-y-3 relative">
             <div className="relative">
-              <input 
+              <Input
                 type="text"
+                aria-label="Lotnisko wylotu"
                 value={flightFrom}
                 onChange={(e) => {
                   setFlightFrom(e.target.value);
@@ -100,22 +108,22 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = 'P
                   fromTimeout.current = setTimeout(() => searchAirport(e.target.value, setFromResults), 400);
                 }}
                 placeholder="Skąd? (np. Warszawa-Okęcie)"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               {fromResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-40 overflow-y-auto">
-                  {fromResults.map((r, i) => (
-                    <div key={i} onClick={() => { setFlightFrom(r.display_name); setFromResults([]); }} className="p-2.5 text-xs font-medium hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 truncate">
-                      {r.display_name}
-                    </div>
+                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200/80 rounded-xl shadow-xl ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
+                  {fromResults.map((r) => (
+                    <button type="button" key={r.id} onClick={() => { setFlightFrom(r.displayName); setFromResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-emerald-50 cursor-pointer border-b border-slate-100 last:border-0 truncate transition-colors">
+                      {r.displayName}
+                    </button>
                   ))}
                 </div>
               )}
             </div>
 
             <div className="relative">
-              <input 
+              <Input
                 type="text"
+                aria-label="Lotnisko docelowe"
                 value={flightTo}
                 onChange={(e) => {
                   setFlightTo(e.target.value);
@@ -123,71 +131,70 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = 'P
                   toTimeout.current = setTimeout(() => searchAirport(e.target.value, setToResults), 400);
                 }}
                 placeholder="Dokąd? (np. Katania)"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
               {toResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-40 overflow-y-auto">
-                  {toResults.map((r, i) => (
-                    <div key={i} onClick={() => { setFlightTo(r.display_name); setToResults([]); }} className="p-2.5 text-xs font-medium hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 truncate">
-                      {r.display_name}
-                    </div>
+                <div className={`absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200/80 rounded-xl shadow-xl ${LAYER.dropdown} max-h-40 overflow-y-auto`}>
+                  {toResults.map((r) => (
+                    <button type="button" key={r.id} onClick={() => { setFlightTo(r.displayName); setToResults([]); }} className="block w-full text-left p-2.5 text-xs font-medium hover:bg-emerald-50 cursor-pointer border-b border-slate-100 last:border-0 truncate transition-colors">
+                      {r.displayName}
+                    </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <input 
+            <Input
               type="number"
+              aria-label="Koszt lotu"
               value={flightCost}
               onChange={(e) => setFlightCost(e.target.value)}
-              placeholder="Koszt (PLN)"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder={`Koszt (${currency})`}
             />
 
-            <button type="submit" className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2">
+            <Button type="submit" fullWidth>
               <Plus className="w-4 h-4" /> Dodaj lot
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200/80 rounded-[2rem] p-6 shadow-sm space-y-4">
+        <Card className="space-y-4">
           <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
             <Hotel className="w-4 h-4 text-emerald-500" /> Dodaj Nocleg / Hotel
           </h3>
           <form onSubmit={handleAddHotel} className="space-y-3">
-            <input 
+            <Input
               type="text"
+              aria-label="Nazwa noclegu"
               value={hotelName}
               onChange={(e) => setHotelName(e.target.value)}
               placeholder="Nazwa hotelu / apartamentu"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
-            <input 
+            <Input
               type="number"
+              aria-label="Koszt noclegu"
               value={hotelCost}
               onChange={(e) => setHotelCost(e.target.value)}
-              placeholder="Całkowity koszt noclegu (PLN)"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder={`Całkowity koszt noclegu (${currency})`}
             />
             <div className="pt-9">
-              <button type="submit" className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2">
+              <Button type="submit" fullWidth>
                 <Plus className="w-4 h-4" /> Dodaj nocleg
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
+        </Card>
 
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-[2rem] p-6 shadow-sm space-y-4">
+      <Card className="space-y-4">
         <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
           <Plane className="w-4 h-4 text-emerald-500" /> Twoje rezerwacje lotów i hoteli
         </h3>
-        
+
         <div className="space-y-3">
           {flightsAndHotels.length > 0 ? (
             flightsAndHotels.map(item => (
-              <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50/60 rounded-2xl border border-slate-100">
+              <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600">
                     {item.category === 'Loty' ? <Plane className="w-4 h-4" /> : <Hotel className="w-4 h-4" />}
@@ -197,21 +204,23 @@ export function FlightsAndHotelView({ customItems, setCustomItems, currency = 'P
                     <div className="text-xs text-slate-400 uppercase font-bold">{item.category}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <span className="font-black text-slate-900 text-sm">{item.cost} {currency}</span>
-                  <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500 text-xs font-bold p-1 cursor-pointer">
+                  <IconButton label="Usuń rezerwację" variant="danger" onClick={() => removeItem(item.id)}>
                     <Trash2 className="w-4 h-4" />
-                  </button>
+                  </IconButton>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-xs text-slate-400 p-4 bg-slate-50/50 rounded-2xl text-center italic">
-              Brak zaplanowanych lotów lub hoteli. Użyj formularzy powyżej, aby je dodać.
-            </div>
+            <EmptyState
+              compact
+              title="Brak zaplanowanych lotów lub hoteli."
+              description="Użyj formularzy powyżej, aby je dodać."
+            />
           )}
         </div>
-      </div>
+      </Card>
 
     </div>
   );

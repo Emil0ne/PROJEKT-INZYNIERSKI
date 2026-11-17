@@ -12,19 +12,19 @@ body {
   @apply antialiased bg-[#F8FAFC];
 }
 
-/* Czyszczenie domyślnego dymka Leaflet dla klasy custom-dark-popup */
-.custom-dark-popup .leaflet-popup-content-wrapper {
+/* Czyszczenie domyślnego dymka Leaflet – wygląd popupa zapewnia nasz jasny komponent (klasa app-popup) */
+.app-popup .leaflet-popup-content-wrapper {
   background: transparent !important;
   box-shadow: none !important;
   border: none !important;
   padding: 0 !important;
 }
 
-.custom-dark-popup .leaflet-popup-tip-container {
+.app-popup .leaflet-popup-tip-container {
   display: none !important;
 }
 
-.custom-dark-popup .leaflet-popup-content {
+.app-popup .leaflet-popup-content {
   margin: 0 !important;
   width: max-content !important;
 }
