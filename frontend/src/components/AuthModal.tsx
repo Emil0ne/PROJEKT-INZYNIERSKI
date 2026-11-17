@@ -24,7 +24,10 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
   const [resetSuccess, setResetSuccess] = useState(false);
 
   // Czyszczenie formularza i błędów przy zamykaniu lub zmianie trybu
-  useEffect(() => {
+  // (reset stanu w trakcie renderowania – zalecany przez Reacta wzorzec zamiast setState w efekcie)
+  const [resetKey, setResetKey] = useState({ isOpen, initialMode });
+  if (resetKey.isOpen !== isOpen || resetKey.initialMode !== initialMode) {
+    setResetKey({ isOpen, initialMode });
     if (!isOpen) {
       setPassword('');
       setConfirmPassword('');
@@ -32,7 +35,7 @@ export function AuthModal({ isOpen, onClose, initialMode, onSwitchMode }: AuthMo
     }
     setAuthError('');
     setResetSuccess(false);
-  }, [isOpen, initialMode]);
+  }
 
   // Obsługa zamykania modala klawiszem Escape
   useEffect(() => {

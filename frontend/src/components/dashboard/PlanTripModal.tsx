@@ -144,9 +144,11 @@ export function PlanTripModal({ isOpen, onClose }: PlanTripModalProps) {
   }, []);
 
   // Po zamknięciu modala zapominamy wybrane miejsce
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
     if (!isOpen) setSelectedPlace(null);
-  }, [isOpen]);
+  }
 
   useEffect(() => {
     if (focusedIndex >= 0 && showDestinations) {

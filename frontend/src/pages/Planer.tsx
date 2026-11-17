@@ -21,6 +21,7 @@ import { FlightsAndHotelView } from './FlightsAndHotelView';
 import { DEFAULT_BUDGET_ITEMS, DEFAULT_PACKING_ITEMS, getTripById } from '../mocks/trips';
 import { DEFAULT_CENTER, DEFAULT_CURRENCY, DEFAULT_PIN_COLOR, DEFAULT_TOTAL_BUDGET } from '../lib/constants';
 import { generateTripDays } from '../lib/dates';
+import { newId } from '../lib/ids';
 import { biasDeltaForZoom, geocodeAddress, reverseGeocode, searchPlaces, zoomForKind } from '../lib/geocoding';
 import { generateTripPlan } from '../services/assistantApi';
 import type { BudgetItem } from '../types/budget';
@@ -64,13 +65,17 @@ export function Planer() {
   const aiKey = wantsAiPlan ? location.search : '';
   const [isGenerating, setIsGenerating] = useState(wantsAiPlan);
   const [generationError, setGenerationError] = useState('');
+  const canGenerate = !!aiKey && !!startDate && !!endDate;
+
+  const [activeSection, setActiveSection] = useState<string>('d1');
+  const [mapCenter, setMapCenter] = useState<[number, number]>(hasDestCoords ? [destLat, destLng] : DEFAULT_CENTER);
+  const [mapZoom, setMapZoom] = useState(4);
 
   useEffect(() => {
-    if (!aiKey || !startDate || !endDate) {
-      setIsGenerating(false);
-      return;
-    }
+    if (!aiKey || !startDate || !endDate) return;
     let cancelled = false;
+    // Celowe: start generowania po zmianie parametrów URL (synchronizacja z zewnętrznym API).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsGenerating(true);
     setGenerationError('');
     generateTripPlan({
@@ -106,9 +111,6 @@ export function Planer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiKey]);
 
-  const [activeSection, setActiveSection] = useState<string>('d1');
-  const [mapCenter, setMapCenter] = useState<[number, number]>(hasDestCoords ? [destLat, destLng] : DEFAULT_CENTER);
-  const [mapZoom, setMapZoom] = useState(4);
   const [isMapVisible, setIsMapVisible] = useState(true);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
@@ -217,6 +219,8 @@ export function Planer() {
 
   useEffect(() => {
     if (hasDestCoords) {
+      // Celowe: ustawienie widoku mapy po zmianie współrzędnych celu podróży.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMapCenter([destLat, destLng]);
       setMapZoom(destZoom);
       searchBias.current = { lat: destLat, lng: destLng, delta: biasDeltaForZoom(destZoom) };
@@ -235,7 +239,7 @@ export function Planer() {
       })
       .catch(console.error);
     return () => { cancelled = true; };
-  }, [destLat, destLng, destZoom, tripDestination]);
+  }, [hasDestCoords, destLat, destLng, destZoom, tripDestination]);
 
   const handleSearchPlace = (query: string) => {
     setPlaceQuery(query);
@@ -266,7 +270,7 @@ export function Planer() {
     if (!activeSection.startsWith('d')) return; 
     
     const newItem: ScheduleItem = {
-      id: `i${Date.now()}`,
+      id: newId('i'),
       title: placeName,
       time: '12:00',
       type: 'activity',
@@ -444,7 +448,7 @@ export function Planer() {
         </DragOverlay>
         <div className="flex-1 flex overflow-clip relative">
 
-          {isGenerating && (
+          {isGenerating && canGenerate && (
             <div
               role="status"
               aria-live="polite"

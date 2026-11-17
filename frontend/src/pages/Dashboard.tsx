@@ -88,12 +88,10 @@ export function Dashboard() {
   };
 
   // Wyszukiwarka dla mapy odkrywcy (teraz na Open-Meteo)
-  const [explorerSearchResults, setExplorerSearchResults] = useState<GeocodedPlace[]>([]);
+  const [foundPlaces, setExplorerSearchResults] = useState<GeocodedPlace[]>([]);
+  const explorerSearchResults = searchQuery.trim().length < 3 ? [] : foundPlaces;
   useEffect(() => {
-    if (searchQuery.trim().length < 3) {
-      setExplorerSearchResults([]);
-      return;
-    }
+    if (searchQuery.trim().length < 3) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       // Tylko nazwa i kraj (bez regionu)

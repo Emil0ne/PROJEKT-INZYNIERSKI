@@ -5,6 +5,7 @@ import { BUDGET_CATEGORIES, type BudgetCategory, type BudgetItem } from '../type
 import type { ScheduleItem } from '../types/trip';
 import { calculateBudgetSummary } from '../lib/budget';
 import { DEFAULT_CURRENCY } from '../lib/constants';
+import { newId } from '../lib/ids';
 
 interface BudgetViewProps {
   tripId?: string;
@@ -100,7 +101,7 @@ export function BudgetView({
     e.preventDefault();
     if (!newTitle.trim() || !newCost) return;
     const newItem: BudgetItem = {
-      id: String(Date.now()),
+      id: newId('budget'),
       title: newTitle,
       category: newCategory,
       cost: Number(newCost),
