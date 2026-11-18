@@ -1,0 +1,129 @@
+# CI – automatyczne sprawdzanie każdego Pull Requesta do main
+# Joby backend/frontend uruchamiają się dopiero, gdy dany folder istnieje w repo
+# (do czasu merge'a gałęzi Karola i Emila są po prostu pomijane).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Wykrywa, które części projektu są już w repo
+  # ------------------------------------------------------------------
+  detect:
+    name: Wykryj części projektu
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.check.outputs.backend }}
+      frontend: ${{ steps.check.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if find backend -name '*.csproj' 2>/dev/null | grep -q .; then echo "backend=true" >> "$GITHUB_OUTPUT"; else echo "backend=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -f frontend/package-lock.json ]; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+
+  # ------------------------------------------------------------------
+  # Baza danych: czysty PostgreSQL 16 + migracje EF Core
+  # ------------------------------------------------------------------
+  database:
+    name: Baza danych (migracje EF Core)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: travel_assistant
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d travel_assistant"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ConnectionStrings__Default: Host=localhost;Port=5432;Database=travel_assistant;Username=ci_user;Password=ci_password
+      PGHOST: localhost
+      PGUSER: ci_user
+      PGPASSWORD: ci_password
+      PGDATABASE: travel_assistant
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Narzędzie dotnet-ef
+        run: dotnet tool restore
+
+      - name: Czy migracje są aktualne względem modelu?
+        run: dotnet ef migrations has-pending-model-changes --project backend/TravelAssistant.Data
+
+      - name: Zastosuj migracje na czystej bazie
+        run: dotnet ef database update --project backend/TravelAssistant.Data
+
+      - name: Sprawdź tabele i dane demo
+        run: |
+          psql -c "\dt"
+          TABLES=$(psql -tAc "select count(*) from information_schema.tables where table_schema='public' and table_name <> '__EFMigrationsHistory'")
+          TRIPS=$(psql -tAc "select count(*) from trip_plans")
+          echo "Tabele: $TABLES, podróże w seedzie: $TRIPS"
+          test "$TABLES" -ge 6
+          test "$TRIPS" -ge 1
+
+  # ------------------------------------------------------------------
+  # Backend .NET 8
+  # ------------------------------------------------------------------
+  backend:
+    name: Backend (.NET 8 build)
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: |
+          for p in $(find backend -name '*.csproj'); do dotnet restore "$p"; done
+      - name: Build
+        run: |
+          for p in $(find backend -name '*.csproj'); do dotnet build "$p" --no-restore -c Release; done
+      - name: Testy (jeśli są projekty testowe)
+        run: |
+          TESTS=$(find backend tests -name '*Tests.csproj' 2>/dev/null || true)
+          if [ -z "$TESTS" ]; then echo "Brak projektów testowych - pomijam"; exit 0; fi
+          for p in $TESTS; do dotnet test "$p" -c Release; done
+
+  # ------------------------------------------------------------------
+  # Frontend React + TypeScript
+  # ------------------------------------------------------------------
+  frontend:
+    name: Frontend (lint + build)
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
