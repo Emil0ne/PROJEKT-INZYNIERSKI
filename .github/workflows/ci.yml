@@ -33,10 +33,10 @@ jobs:
           if [ -f frontend/package-lock.json ]; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
 
   # ------------------------------------------------------------------
-  # Baza danych: stawia czysty PostgreSQL 16 i odpala skrypty z init-scripts
+  # Baza danych: czysty PostgreSQL 16 + migracje EF Core
   # ------------------------------------------------------------------
   database:
-    name: Baza danych (schemat + seed)
+    name: Baza danych (migracje EF Core)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -53,24 +53,29 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      ConnectionStrings__Default: Host=localhost;Port=5432;Database=travel_assistant;Username=ci_user;Password=ci_password
       PGHOST: localhost
       PGUSER: ci_user
       PGPASSWORD: ci_password
       PGDATABASE: travel_assistant
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Narzędzie dotnet-ef
+        run: dotnet tool restore
 
-      - name: Uruchom skrypty init-scripts (w kolejności alfabetycznej)
-        run: |
-          for f in $(ls init-scripts/*.sql | sort); do
-            echo "==> $f"
-            psql -v ON_ERROR_STOP=1 -q -f "$f"
-          done
+      - name: Czy migracje są aktualne względem modelu?
+        run: dotnet ef migrations has-pending-model-changes --project backend/TravelAssistant.Data
+
+      - name: Zastosuj migracje na czystej bazie
+        run: dotnet ef database update --project backend/TravelAssistant.Data
 
       - name: Sprawdź tabele i dane demo
         run: |
           psql -c "\dt"
-          TABLES=$(psql -tAc "select count(*) from information_schema.tables where table_schema='public'")
+          TABLES=$(psql -tAc "select count(*) from information_schema.tables where table_schema='public' and table_name <> '__EFMigrationsHistory'")
           TRIPS=$(psql -tAc "select count(*) from trip_plans")
           echo "Tabele: $TABLES, podróże w seedzie: $TRIPS"
           test "$TABLES" -ge 6

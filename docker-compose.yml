@@ -12,8 +12,8 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # 01_schema.sql, 02_seed.sql - wykonywane alfabetycznie, tylko na pustym wolumenie
-      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    # Tabele i dane demo tworzą migracje EF Core (backend/TravelAssistant.Data):
+    #   dotnet tool restore && dotnet ef database update --project backend/TravelAssistant.Data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
