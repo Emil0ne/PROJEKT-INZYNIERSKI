@@ -1,0 +1,19 @@
+# Sekrety
+.env
+.env.local
+*.env.local
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node
+node_modules/
+dist/
+
+# IDE / system
+.idea/
+.DS_Store
+Thumbs.db
