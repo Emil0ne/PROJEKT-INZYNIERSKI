@@ -12,3 +12,12 @@ docker compose ps             # STATUS powinien być "healthy"
 - Skrypty z `init-scripts` wykonują się **tylko na pustym wolumenie** – po zmianie schematu: `docker compose down -v && docker compose up -d`
 - Połączenie: `localhost:5432`, baza/użytkownik/hasło z `.env`
 - Konto demo: `demo@travel.local` / `haslo123` (hash bcrypt)
+
+## CI (GitHub Actions)
+
+Plik `.github/workflows/ci.yml` uruchamia się przy każdym Pull Requeście i pushu do `main`:
+- **Baza danych** – czysty PostgreSQL 16 + wszystkie skrypty z `init-scripts` (wyłapuje błędy w schemacie/seedzie)
+- **Backend** – `dotnet restore` + `dotnet build` (+ testy, gdy pojawią się projekty `*Tests.csproj`)
+- **Frontend** – `npm ci`, `npm run lint`, `npm run build`
+
+Joby backend/frontend są pomijane, dopóki odpowiedni folder nie trafi do `main`.
