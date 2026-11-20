@@ -127,3 +127,29 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  # ------------------------------------------------------------------
+  # Docker: czy obraz backendu się buduje (backend/Dockerfile)
+  # ------------------------------------------------------------------
+  docker:
+    name: Docker (obraz API)
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zbuduj obraz API
+        run: docker build -f backend/Dockerfile -t travel-assistant-api:ci backend
+      - name: Uruchom kontener i sprawdź, czy API odpowiada
+        run: |
+          docker run -d --name api -p 5022:8080 \
+            -e ASPNETCORE_ENVIRONMENT=Development \
+            -e OpenAI__ApiKey=brak-klucza \
+            travel-assistant-api:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5022/swagger/v1/swagger.json > /dev/null; then
+              echo "API odpowiada ✅"; exit 0
+            fi
+            sleep 2
+          done
+          echo "API nie wystartowało ❌"; docker logs api; exit 1
