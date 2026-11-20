@@ -1,0 +1,13 @@
+# Wyniki kompilacji z Windowsa nie mogą trafić do obrazu (psują restore/publish w Linuksie)
+**/bin/
+**/obj/
+
+# Pliki IDE i lokalne
+**/.vs/
+**/.vscode/
+**/*.user
+**/*.http
+
+# Sekrety
+**/.env
+**/appsettings.*.local.json

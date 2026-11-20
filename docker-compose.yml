@@ -21,5 +21,24 @@ services:
       retries: 10
       start_period: 10s
 
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: travel_assistant_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development        # Swagger pod /swagger
+      # Bez prawdziwego klucza działa /api/Trips/mock, a /generate zwraca 502
+      OpenAI__ApiKey: ${OpenAI__ApiKey:-brak-klucza}
+      OpenAI__Model: ${OpenAI__Model:-gpt-4o-mini}
+      # Gotowe pod podpięcie TravelAssistant.Data w API (w sieci Dockera baza = host "postgres")
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-travel_assistant};Username=${POSTGRES_USER:-dev_user};Password=${POSTGRES_PASSWORD}
+    ports:
+      - "${API_PORT:-5022}:8080"                # ten sam adres co lokalnie: http://localhost:5022
+
 volumes:
   postgres_data:
