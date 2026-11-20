@@ -1,0 +1,9 @@
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.csproj.AssemblyReference.cache
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\rpswa.dswa.cache.json
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.AssemblyInfoInputs.cache
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.AssemblyInfo.cs
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.csproj.CoreCompileInputs.cache
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Karik\Projekt_inż_BACKEND-AI\PROJEKT-INZYNIERSKI\backend\TravelAssistant.API\obj\Debug\net10.0\TravelAssistant.API.sourcelink.json
